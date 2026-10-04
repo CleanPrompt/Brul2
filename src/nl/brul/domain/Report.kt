@@ -4,15 +4,27 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 abstract class Report(
-    val title: String,
-    val description: String?,
-    val photo: String?,
-    val location: Location,
+    title: String,
+    description: String?,
+    photo: String?,
+    location: Location,
     val createdBy: User
 ) {
     val id: String = UUID.randomUUID().toString()
 
     val createdAt: LocalDateTime = LocalDateTime.now()
+
+    var title: String = title
+        private set
+
+    var description: String? = description
+        private set
+
+    var photo: String? = photo
+        private set
+
+    var location: Location = location
+        private set
 
     var status: ReportStatus = ReportStatus.OPEN
         protected set
@@ -21,6 +33,22 @@ abstract class Report(
         require(title.isNotBlank()) {
             "Title must not be blank."
         }
+    }
+
+    fun update(
+        title: String,
+        description: String?,
+        photo: String?,
+        location: Location
+    ) {
+        require(title.isNotBlank()) {
+            "Title must not be blank."
+        }
+
+        this.title = title
+        this.description = description
+        this.photo = photo
+        this.location = location
     }
 
     fun resolve() {

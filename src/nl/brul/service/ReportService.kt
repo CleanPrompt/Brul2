@@ -1,8 +1,13 @@
 package nl.brul.service
 
 import nl.brul.domain.HelpRequest
+import nl.brul.domain.Location
+import nl.brul.domain.NuisanceReport
+import nl.brul.domain.NuisanceType
 import nl.brul.domain.Report
 import nl.brul.domain.Role
+import nl.brul.domain.SafetyReport
+import nl.brul.domain.Urgency
 import nl.brul.domain.User
 import nl.brul.persistence.ReportRepository
 
@@ -18,20 +23,91 @@ class ReportService(
         return reportRepository.findById(reportId)
     }
 
-    fun createReport(report: Report): Report {
-        return reportRepository.save(report)
+    fun createSafetyReport(
+        title: String,
+        description: String?,
+        photo: String?,
+        location: Location,
+        urgency: Urgency,
+        currentUser: User
+    ): SafetyReport {
+        val report = SafetyReport(
+            title = title,
+            description = description,
+            photo = photo,
+            location = location,
+            createdBy = currentUser,
+            urgency = urgency
+        )
+
+        reportRepository.save(report)
+
+        return report
+    }
+
+    fun createNuisanceReport(
+        title: String,
+        description: String?,
+        photo: String?,
+        location: Location,
+        nuisanceType: NuisanceType,
+        currentUser: User
+    ): NuisanceReport {
+        val report = NuisanceReport(
+            title = title,
+            description = description,
+            photo = photo,
+            location = location,
+            createdBy = currentUser,
+            nuisanceType = nuisanceType
+        )
+
+        reportRepository.save(report)
+
+        return report
+    }
+
+    fun createHelpRequest(
+        title: String,
+        description: String?,
+        photo: String?,
+        location: Location,
+        currentUser: User
+    ): HelpRequest {
+        val report = HelpRequest(
+            title = title,
+            description = description,
+            photo = photo,
+            location = location,
+            createdBy = currentUser
+        )
+
+        reportRepository.save(report)
+
+        return report
     }
 
     fun updateReport(
-        report: Report,
+        reportId: String,
+        title: String,
+        description: String?,
+        photo: String?,
+        location: Location,
         currentUser: User
     ): Report? {
-        val existingReport = reportRepository.findById(report.id)
+        val report = reportRepository.findById(reportId)
             ?: return null
 
-        if (!canManageReport(existingReport, currentUser)) {
+        if (!canManageReport(report, currentUser)) {
             return null
         }
+
+        report.update(
+            title = title,
+            description = description,
+            photo = photo,
+            location = location
+        )
 
         return reportRepository.update(report)
     }

@@ -111,7 +111,7 @@ domein of de service-laag daarvoor volledig aangepast hoeft te worden.
 De package `service` bevat de applicatielogica en vormt de verbinding
 tussen het domein en de persistence-laag.
 
-`ReportService` bevat momenteel functionaliteit voor het ophalen,
+`ReportService.kt` bevat momenteel functionaliteit voor het ophalen,
 aanmaken, wijzigen en verwijderen van meldingen, het claimen van een
 `HelpRequest` en het afronden van een melding.
 
@@ -142,7 +142,7 @@ De eerste report-route is geïmplementeerd:
 GET /reports
 ```
 
-Deze route haalt meldingen op via `ReportService` en zet de gevonden
+Deze route haalt meldingen op via `ReportService.kt` en zet de gevonden
 domeinobjecten via `ReportMapper` om naar `ReportResponse`-objecten.
 
 ## Architectuur
@@ -173,7 +173,7 @@ Routing       HTTP-endpoints en koppeling met de service
 Config        Configuratie van Ktor-functionaliteit
 
 De service benadert de persistence-laag via de interface
-`ReportRepository`. Hierdoor is `ReportService` niet direct afhankelijk
+`ReportRepository`. Hierdoor is `ReportService.kt` niet direct afhankelijk
 van de concrete `InMemoryReportRepository`.
 
 De huidige Ktor-configuratie maakt de concrete dependencies handmatig
