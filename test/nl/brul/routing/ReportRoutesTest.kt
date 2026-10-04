@@ -22,4 +22,18 @@ class ReportRoutesTest {
             response.status
         )
     }
+
+    @Test
+    fun `GET report with unknown id returns Not Found`() = testApplication {
+        application {
+            module()
+        }
+
+        val response = client.get("/reports/does-not-exist")
+
+        assertEquals(
+            HttpStatusCode.NotFound,
+            response.status
+        )
+    }
 }
