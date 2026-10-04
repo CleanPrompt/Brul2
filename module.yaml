@@ -9,6 +9,8 @@ dependencies:
   - $ktor.server.core
   - $ktor.server.netty
   - $ktor.server.config.yaml
+  - $ktor.server.contentNegotiation
+  - $ktor.serialization.kotlinx.json
   - ch.qos.logback:logback-classic:1.5.38
 
 test-dependencies:
