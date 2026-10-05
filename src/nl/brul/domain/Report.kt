@@ -3,7 +3,7 @@ package nl.brul.domain
 import java.time.LocalDateTime
 import java.util.UUID
 
-abstract class Report(
+sealed class Report(
     title: String,
     description: String?,
     photo: String?,

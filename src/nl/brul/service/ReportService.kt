@@ -5,6 +5,8 @@ import nl.brul.domain.Location
 import nl.brul.domain.NuisanceReport
 import nl.brul.domain.NuisanceType
 import nl.brul.domain.Report
+import nl.brul.domain.ReportStatus
+import nl.brul.domain.ReportType
 import nl.brul.domain.Role
 import nl.brul.domain.SafetyReport
 import nl.brul.domain.Urgency
@@ -15,8 +17,46 @@ class ReportService(
     private val reportRepository: ReportRepository
 ) {
 
-    fun getReports(): List<Report> {
-        return reportRepository.findAll()
+    fun getReports(
+        search: String? = null,
+        type: ReportType? = null,
+        status: ReportStatus? = null,
+        urgency: Urgency? = null,
+        nuisanceType: NuisanceType? = null
+    ): List<Report> {
+        return reportRepository
+            .findAll()
+            .asSequence()
+            .filter { report ->
+                matchesSearch(
+                    report = report,
+                    search = search
+                )
+            }
+            .filter { report ->
+                matchesType(
+                    report = report,
+                    type = type
+                )
+            }
+            .filter { report ->
+                status == null || report.status == status
+            }
+            .filter { report ->
+                urgency == null ||
+                        (
+                                report is SafetyReport &&
+                                        report.urgency == urgency
+                                )
+            }
+            .filter { report ->
+                nuisanceType == null ||
+                        (
+                                report is NuisanceReport &&
+                                        report.nuisanceType == nuisanceType
+                                )
+            }
+            .toList()
     }
 
     fun getReport(reportId: String): Report? {
@@ -95,8 +135,9 @@ class ReportService(
         location: Location,
         currentUser: User
     ): Report? {
-        val report = reportRepository.findById(reportId)
-            ?: return null
+        val report =
+            reportRepository.findById(reportId)
+                ?: return null
 
         if (!canManageReport(report, currentUser)) {
             return null
@@ -116,8 +157,9 @@ class ReportService(
         reportId: String,
         currentUser: User
     ): Boolean {
-        val report = reportRepository.findById(reportId)
-            ?: return false
+        val report =
+            reportRepository.findById(reportId)
+                ?: return false
 
         if (!canManageReport(report, currentUser)) {
             return false
@@ -130,8 +172,9 @@ class ReportService(
         reportId: String,
         currentUser: User
     ): Boolean {
-        val report = reportRepository.findById(reportId)
-            ?: return false
+        val report =
+            reportRepository.findById(reportId)
+                ?: return false
 
         if (report !is HelpRequest) {
             return false
@@ -150,8 +193,9 @@ class ReportService(
         reportId: String,
         currentUser: User
     ): Boolean {
-        val report = reportRepository.findById(reportId)
-            ?: return false
+        val report =
+            reportRepository.findById(reportId)
+                ?: return false
 
         if (!canManageReport(report, currentUser)) {
             return false
@@ -162,12 +206,60 @@ class ReportService(
         return true
     }
 
+    private fun matchesSearch(
+        report: Report,
+        search: String?
+    ): Boolean {
+        if (search.isNullOrBlank()) {
+            return true
+        }
+
+        val searchTerm = search.trim()
+
+        val titleMatches =
+            report.title.contains(
+                other = searchTerm,
+                ignoreCase = true
+            )
+
+        val descriptionMatches =
+            report.description?.contains(
+                other = searchTerm,
+                ignoreCase = true
+            ) ?: false
+
+        return titleMatches || descriptionMatches
+    }
+
+    private fun matchesType(
+        report: Report,
+        type: ReportType?
+    ): Boolean {
+        if (type == null) {
+            return true
+        }
+
+        return when (type) {
+            ReportType.SAFETY ->
+                report is SafetyReport
+
+            ReportType.NUISANCE ->
+                report is NuisanceReport
+
+            ReportType.HELP ->
+                report is HelpRequest
+        }
+    }
+
     private fun canManageReport(
         report: Report,
         currentUser: User
     ): Boolean {
-        val isOwner = report.createdBy.id == currentUser.id
-        val isAdmin = currentUser.role == Role.ADMIN
+        val isOwner =
+            report.createdBy.id == currentUser.id
+
+        val isAdmin =
+            currentUser.role == Role.ADMIN
 
         return isOwner || isAdmin
     }

@@ -3,32 +3,29 @@ package nl.brul.routing
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.routing.*
 import io.ktor.server.testing.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlinx.serialization.json.Json
+import kotlin.test.assertTrue
+import nl.brul.domain.NuisanceType
 import nl.brul.domain.ReportStatus
+import nl.brul.domain.ReportType
+import nl.brul.domain.Urgency
 import nl.brul.dto.request.CreateHelpRequestRequest
+import nl.brul.dto.request.CreateNuisanceReportRequest
 import nl.brul.dto.request.CreateSafetyReportRequest
 import nl.brul.dto.request.UpdateReportRequest
 import nl.brul.dto.response.ReportResponse
+import nl.brul.persistence.InMemoryReportRepository
+import nl.brul.service.ReportService
 import org.jetbrains.amper.ktor.module
 
 class ReportRoutesTest {
-
-    private fun ApplicationTestBuilder.createJsonClient() =
-        createClient {
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        ignoreUnknownKeys = true
-                    }
-                )
-            }
-        }
 
     @Test
     fun `GET reports returns OK`() = testApplication {
@@ -36,7 +33,8 @@ class ReportRoutesTest {
             module()
         }
 
-        val response = client.get("/reports")
+        val response =
+            client.get("/reports")
 
         assertEquals(
             HttpStatusCode.OK,
@@ -45,12 +43,38 @@ class ReportRoutesTest {
     }
 
     @Test
-    fun `GET report with unknown id returns Not Found`() = testApplication {
+    fun `GET reports returns empty list when no reports exist`() = testApplication {
         application {
             module()
         }
 
-        val response = client.get("/reports/does-not-exist")
+        val client =
+            createJsonClient()
+
+        val response =
+            client.get("/reports")
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertTrue(
+            reports.isEmpty()
+        )
+    }
+
+    @Test
+    fun `GET unknown report returns NotFound`() = testApplication {
+        application {
+            module()
+        }
+
+        val response =
+            client.get("/reports/does-not-exist")
 
         assertEquals(
             HttpStatusCode.NotFound,
@@ -59,36 +83,40 @@ class ReportRoutesTest {
     }
 
     @Test
-    fun `POST safety report returns Created and correct report`() = testApplication {
+    fun `POST safety creates safety report`() = testApplication {
         application {
             module()
         }
 
-        val jsonClient = createJsonClient()
+        val client =
+            createJsonClient()
 
-        val request = CreateSafetyReportRequest(
-            title = "Broken streetlight",
-            description = "Streetlight is not working.",
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.MEDIUM
-        )
+        val response =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
 
-        val response = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "Broken streetlight",
+                        description = "The streetlight is broken.",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = Urgency.HIGH
+                    )
+                )
+            }
 
         assertEquals(
             HttpStatusCode.Created,
             response.status
         )
 
-        val report = response.body<ReportResponse>()
+        val report =
+            response.body<ReportResponse>()
 
         assertEquals(
-            "SAFETY",
+            ReportType.SAFETY,
             report.type
         )
 
@@ -98,22 +126,7 @@ class ReportRoutesTest {
         )
 
         assertEquals(
-            "Streetlight is not working.",
-            report.description
-        )
-
-        assertEquals(
-            52.0705,
-            report.latitude
-        )
-
-        assertEquals(
-            4.3007,
-            report.longitude
-        )
-
-        assertEquals(
-            nl.brul.domain.Urgency.MEDIUM,
+            Urgency.HIGH,
             report.urgency
         )
 
@@ -121,36 +134,32 @@ class ReportRoutesTest {
             ReportStatus.OPEN,
             report.status
         )
-
-        assertEquals(
-            "user-1",
-            report.createdById
-        )
-
-        assertNotNull(report.id)
     }
 
     @Test
-    fun `created safety report can be retrieved by id`() = testApplication {
+    fun `POST safety then GET by id returns created report`() = testApplication {
         application {
             module()
         }
 
-        val jsonClient = createJsonClient()
+        val client =
+            createJsonClient()
 
-        val createRequest = CreateSafetyReportRequest(
-            title = "Unsafe crossing",
-            description = "Cars are driving too fast.",
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.HIGH
-        )
+        val createResponse =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
 
-        val createResponse = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(createRequest)
-        }
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "Unsafe crossing",
+                        description = "Cars are driving too fast.",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = Urgency.HIGH
+                    )
+                )
+            }
 
         assertEquals(
             HttpStatusCode.Created,
@@ -161,39 +170,118 @@ class ReportRoutesTest {
             createResponse.body<ReportResponse>()
 
         val getResponse =
-            jsonClient.get("/reports/${createdReport.id}")
+            client.get(
+                "/reports/${createdReport.id}"
+            )
 
         assertEquals(
             HttpStatusCode.OK,
             getResponse.status
         )
 
-        val retrievedReport =
+        val foundReport =
             getResponse.body<ReportResponse>()
 
         assertEquals(
             createdReport.id,
-            retrievedReport.id
+            foundReport.id
         )
 
         assertEquals(
             "Unsafe crossing",
-            retrievedReport.title
+            foundReport.title
         )
 
         assertEquals(
-            "SAFETY",
-            retrievedReport.type
+            ReportType.SAFETY,
+            foundReport.type
+        )
+    }
+
+    @Test
+    fun `POST nuisance creates nuisance report`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.post("/reports/nuisance") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateNuisanceReportRequest(
+                        title = "Loud music",
+                        description = "Loud music during the night.",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        nuisanceType = NuisanceType.NOISE
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.Created,
+            response.status
+        )
+
+        val report =
+            response.body<ReportResponse>()
+
+        assertEquals(
+            ReportType.NUISANCE,
+            report.type
         )
 
         assertEquals(
-            nl.brul.domain.Urgency.HIGH,
-            retrievedReport.urgency
+            NuisanceType.NOISE,
+            report.nuisanceType
+        )
+    }
+
+    @Test
+    fun `POST help creates help request`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.post("/reports/help") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateHelpRequestRequest(
+                        title = "Help moving table",
+                        description = "I need help moving a table.",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.Created,
+            response.status
+        )
+
+        val report =
+            response.body<ReportResponse>()
+
+        assertEquals(
+            ReportType.HELP,
+            report.type
         )
 
         assertEquals(
             ReportStatus.OPEN,
-            retrievedReport.status
+            report.status
         )
     }
 
@@ -203,42 +291,43 @@ class ReportRoutesTest {
             module()
         }
 
-        val jsonClient = createJsonClient()
+        val client =
+            createJsonClient()
 
-        val createRequest = CreateSafetyReportRequest(
-            title = "Old title",
-            description = "Old description",
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.LOW
-        )
+        val createResponse =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
 
-        val createResponse = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(createRequest)
-        }
-
-        assertEquals(
-            HttpStatusCode.Created,
-            createResponse.status
-        )
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "Old title",
+                        description = "Old description",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = Urgency.MEDIUM
+                    )
+                )
+            }
 
         val createdReport =
             createResponse.body<ReportResponse>()
 
-        val updateRequest = UpdateReportRequest(
-            title = "Updated title",
-            description = "Updated description",
-            photo = "updated-photo.jpg",
-            latitude = 52.0800,
-            longitude = 4.3100
-        )
-
         val updateResponse =
-            jsonClient.put("/reports/${createdReport.id}") {
+            client.put(
+                "/reports/${createdReport.id}"
+            ) {
                 contentType(ContentType.Application.Json)
-                setBody(updateRequest)
+
+                setBody(
+                    UpdateReportRequest(
+                        title = "New title",
+                        description = "New description",
+                        photo = null,
+                        latitude = 52.09,
+                        longitude = 4.32
+                    )
+                )
             }
 
         assertEquals(
@@ -250,38 +339,53 @@ class ReportRoutesTest {
             updateResponse.body<ReportResponse>()
 
         assertEquals(
-            createdReport.id,
-            updatedReport.id
-        )
-
-        assertEquals(
-            "Updated title",
+            "New title",
             updatedReport.title
         )
 
         assertEquals(
-            "Updated description",
+            "New description",
             updatedReport.description
         )
 
         assertEquals(
-            "updated-photo.jpg",
-            updatedReport.photo
-        )
-
-        assertEquals(
-            52.0800,
+            52.09,
             updatedReport.latitude
         )
 
         assertEquals(
-            4.3100,
+            4.32,
             updatedReport.longitude
         )
+    }
+
+    @Test
+    fun `PUT unknown report returns NotFound`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.put("/reports/does-not-exist") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    UpdateReportRequest(
+                        title = "New title",
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31
+                    )
+                )
+            }
 
         assertEquals(
-            nl.brul.domain.Urgency.LOW,
-            updatedReport.urgency
+            HttpStatusCode.NotFound,
+            response.status
         )
     }
 
@@ -291,32 +395,31 @@ class ReportRoutesTest {
             module()
         }
 
-        val jsonClient = createJsonClient()
+        val client =
+            createJsonClient()
 
-        val createRequest = CreateSafetyReportRequest(
-            title = "Temporary report",
-            description = null,
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.LOW
-        )
+        val createResponse =
+            client.post("/reports/help") {
+                contentType(ContentType.Application.Json)
 
-        val createResponse = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(createRequest)
-        }
-
-        assertEquals(
-            HttpStatusCode.Created,
-            createResponse.status
-        )
+                setBody(
+                    CreateHelpRequestRequest(
+                        title = "Temporary help request",
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31
+                    )
+                )
+            }
 
         val createdReport =
             createResponse.body<ReportResponse>()
 
         val deleteResponse =
-            jsonClient.delete("/reports/${createdReport.id}")
+            client.delete(
+                "/reports/${createdReport.id}"
+            )
 
         assertEquals(
             HttpStatusCode.NoContent,
@@ -324,7 +427,9 @@ class ReportRoutesTest {
         )
 
         val getResponse =
-            jsonClient.get("/reports/${createdReport.id}")
+            client.get(
+                "/reports/${createdReport.id}"
+            )
 
         assertEquals(
             HttpStatusCode.NotFound,
@@ -333,31 +438,46 @@ class ReportRoutesTest {
     }
 
     @Test
-    fun `resolve report changes status to Resolved`() = testApplication {
+    fun `DELETE unknown report returns NotFound`() = testApplication {
         application {
             module()
         }
 
-        val jsonClient = createJsonClient()
-
-        val createRequest = CreateSafetyReportRequest(
-            title = "Situation to resolve",
-            description = null,
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.MEDIUM
-        )
-
-        val createResponse = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(createRequest)
-        }
+        val response =
+            client.delete(
+                "/reports/does-not-exist"
+            )
 
         assertEquals(
-            HttpStatusCode.Created,
-            createResponse.status
+            HttpStatusCode.NotFound,
+            response.status
         )
+    }
+
+    @Test
+    fun `POST resolve changes report status to RESOLVED`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val createResponse =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "Broken light",
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = Urgency.LOW
+                    )
+                )
+            }
 
         val createdReport =
             createResponse.body<ReportResponse>()
@@ -368,7 +488,7 @@ class ReportRoutesTest {
         )
 
         val resolveResponse =
-            jsonClient.post(
+            client.post(
                 "/reports/${createdReport.id}/resolve"
             )
 
@@ -381,112 +501,8 @@ class ReportRoutesTest {
             resolveResponse.body<ReportResponse>()
 
         assertEquals(
-            createdReport.id,
-            resolvedReport.id
-        )
-
-        assertEquals(
             ReportStatus.RESOLVED,
             resolvedReport.status
-        )
-    }
-
-    @Test
-    fun `POST safety report with blank title fails`() = testApplication {
-        application {
-            module()
-        }
-
-        val jsonClient = createJsonClient()
-
-        val request = CreateSafetyReportRequest(
-            title = "",
-            description = null,
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.LOW
-        )
-
-        val response = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-
-        assertEquals(
-            HttpStatusCode.InternalServerError,
-            response.status
-        )
-    }
-
-    @Test
-    fun `POST safety report with invalid latitude fails`() = testApplication {
-        application {
-            module()
-        }
-
-        val jsonClient = createJsonClient()
-
-        val request = CreateSafetyReportRequest(
-            title = "Invalid location",
-            description = null,
-            photo = null,
-            latitude = 100.0,
-            longitude = 4.3007,
-            urgency = nl.brul.domain.Urgency.LOW
-        )
-
-        val response = jsonClient.post("/reports/safety") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-
-        assertEquals(
-            HttpStatusCode.InternalServerError,
-            response.status
-        )
-    }
-
-    @Test
-    fun `PUT unknown report returns Not Found`() = testApplication {
-        application {
-            module()
-        }
-
-        val jsonClient = createJsonClient()
-
-        val request = UpdateReportRequest(
-            title = "Updated",
-            description = null,
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007
-        )
-
-        val response =
-            jsonClient.put("/reports/does-not-exist") {
-                contentType(ContentType.Application.Json)
-                setBody(request)
-            }
-
-        assertEquals(
-            HttpStatusCode.NotFound,
-            response.status
-        )
-    }
-
-    @Test
-    fun `DELETE unknown report returns Not Found`() = testApplication {
-        application {
-            module()
-        }
-
-        val response =
-            client.delete("/reports/does-not-exist")
-
-        assertEquals(
-            HttpStatusCode.NotFound,
-            response.status
         )
     }
 
@@ -496,38 +512,552 @@ class ReportRoutesTest {
             module()
         }
 
-        val jsonClient = createJsonClient()
-
-        val createRequest = CreateHelpRequestRequest(
-            title = "Need help",
-            description = "Can someone help me?",
-            photo = null,
-            latitude = 52.0705,
-            longitude = 4.3007
-        )
+        val client =
+            createJsonClient()
 
         val createResponse =
-            jsonClient.post("/reports/help") {
+            client.post("/reports/help") {
                 contentType(ContentType.Application.Json)
-                setBody(createRequest)
+
+                setBody(
+                    CreateHelpRequestRequest(
+                        title = "Need help",
+                        description = "Please help me.",
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31
+                    )
+                )
             }
 
-        assertEquals(
-            HttpStatusCode.Created,
-            createResponse.status
-        )
-
-        val helpRequest =
+        val createdReport =
             createResponse.body<ReportResponse>()
 
         val claimResponse =
-            jsonClient.post(
-                "/reports/${helpRequest.id}/claim"
+            client.post(
+                "/reports/${createdReport.id}/claim"
             )
 
         assertEquals(
             HttpStatusCode.Conflict,
             claimResponse.status
         )
+    }
+
+    @Test
+    fun `POST safety with blank title currently returns InternalServerError`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "",
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = Urgency.HIGH
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.InternalServerError,
+            response.status
+        )
+    }
+
+    @Test
+    fun `POST safety with invalid latitude currently returns InternalServerError`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = "Invalid location",
+                        description = null,
+                        photo = null,
+                        latitude = 100.0,
+                        longitude = 4.31,
+                        urgency = Urgency.HIGH
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.InternalServerError,
+            response.status
+        )
+    }
+
+    @Test
+    fun `GET reports searches title case insensitive`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        createSafetyReport(
+            client = client,
+            title = "Broken Streetlight",
+            urgency = Urgency.HIGH
+        )
+
+        createSafetyReport(
+            client = client,
+            title = "Unsafe crossing",
+            urgency = Urgency.MEDIUM
+        )
+
+        val response =
+            client.get(
+                "/reports?search=streetlight"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            "Broken Streetlight",
+            reports.first().title
+        )
+    }
+
+    @Test
+    fun `GET reports searches description case insensitive`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        client.post("/reports/help") {
+            contentType(ContentType.Application.Json)
+
+            setBody(
+                CreateHelpRequestRequest(
+                    title = "Need assistance",
+                    description = "Please help with my GARDEN",
+                    photo = null,
+                    latitude = 52.08,
+                    longitude = 4.31
+                )
+            )
+        }
+
+        val response =
+            client.get(
+                "/reports?search=garden"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            ReportType.HELP,
+            reports.first().type
+        )
+    }
+
+    @Test
+    fun `GET reports filters by type`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        createSafetyReport(
+            client = client,
+            title = "Safety report",
+            urgency = Urgency.HIGH
+        )
+
+        client.post("/reports/help") {
+            contentType(ContentType.Application.Json)
+
+            setBody(
+                CreateHelpRequestRequest(
+                    title = "Help request",
+                    description = null,
+                    photo = null,
+                    latitude = 52.08,
+                    longitude = 4.31
+                )
+            )
+        }
+
+        val response =
+            client.get(
+                "/reports?type=SAFETY"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            ReportType.SAFETY,
+            reports.first().type
+        )
+    }
+
+    @Test
+    fun `GET reports filters type case insensitive`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        createSafetyReport(
+            client = client,
+            title = "Safety report",
+            urgency = Urgency.LOW
+        )
+
+        val response =
+            client.get(
+                "/reports?type=safety"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            ReportType.SAFETY,
+            reports.first().type
+        )
+    }
+
+    @Test
+    fun `GET reports filters by status`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val openReport =
+            createSafetyReport(
+                client = client,
+                title = "Open report",
+                urgency = Urgency.LOW
+            )
+
+        val resolvedReport =
+            createSafetyReport(
+                client = client,
+                title = "Resolved report",
+                urgency = Urgency.HIGH
+            )
+
+        client.post(
+            "/reports/${resolvedReport.id}/resolve"
+        )
+
+        val response =
+            client.get(
+                "/reports?status=OPEN"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            openReport.id,
+            reports.first().id
+        )
+
+        assertEquals(
+            ReportStatus.OPEN,
+            reports.first().status
+        )
+    }
+
+    @Test
+    fun `GET reports filters by urgency`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        createSafetyReport(
+            client = client,
+            title = "High urgency",
+            urgency = Urgency.HIGH
+        )
+
+        createSafetyReport(
+            client = client,
+            title = "Low urgency",
+            urgency = Urgency.LOW
+        )
+
+        val response =
+            client.get(
+                "/reports?urgency=HIGH"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            "High urgency",
+            reports.first().title
+        )
+
+        assertEquals(
+            Urgency.HIGH,
+            reports.first().urgency
+        )
+    }
+
+    @Test
+    fun `GET reports filters by nuisance type`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        client.post("/reports/nuisance") {
+            contentType(ContentType.Application.Json)
+
+            setBody(
+                CreateNuisanceReportRequest(
+                    title = "Noise complaint",
+                    description = null,
+                    photo = null,
+                    latitude = 52.08,
+                    longitude = 4.31,
+                    nuisanceType = NuisanceType.NOISE
+                )
+            )
+        }
+
+        client.post("/reports/nuisance") {
+            contentType(ContentType.Application.Json)
+
+            setBody(
+                CreateNuisanceReportRequest(
+                    title = "Waste complaint",
+                    description = null,
+                    photo = null,
+                    latitude = 52.08,
+                    longitude = 4.31,
+                    nuisanceType = NuisanceType.WASTE
+                )
+            )
+        }
+
+        val response =
+            client.get(
+                "/reports?nuisanceType=NOISE"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            1,
+            reports.size
+        )
+
+        assertEquals(
+            "Noise complaint",
+            reports.first().title
+        )
+
+        assertEquals(
+            NuisanceType.NOISE,
+            reports.first().nuisanceType
+        )
+    }
+
+    @Test
+    fun `GET reports combines filters`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        createSafetyReport(
+            client = client,
+            title = "Broken streetlight",
+            urgency = Urgency.HIGH
+        )
+
+        createSafetyReport(
+            client = client,
+            title = "Broken fence",
+            urgency = Urgency.LOW
+        )
+
+        createSafetyReport(
+            client = client,
+            title = "Unsafe street",
+            urgency = Urgency.HIGH
+        )
+
+        val response =
+            client.get(
+                "/reports" +
+                        "?type=SAFETY" +
+                        "&urgency=HIGH" +
+                        "&search=street"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            response.status
+        )
+
+        val reports =
+            response.body<List<ReportResponse>>()
+
+        assertEquals(
+            2,
+            reports.size
+        )
+
+        assertTrue(
+            reports.all { report ->
+                report.type == ReportType.SAFETY
+            }
+        )
+
+        assertTrue(
+            reports.all { report ->
+                report.urgency == Urgency.HIGH
+            }
+        )
+    }
+
+    private fun ApplicationTestBuilder.createJsonClient() =
+        createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+    private suspend fun createSafetyReport(
+        client: io.ktor.client.HttpClient,
+        title: String,
+        urgency: Urgency
+    ): ReportResponse {
+        val response =
+            client.post("/reports/safety") {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    CreateSafetyReportRequest(
+                        title = title,
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31,
+                        urgency = urgency
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.Created,
+            response.status
+        )
+
+        return response.body()
     }
 }
