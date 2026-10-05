@@ -2,6 +2,8 @@ product: jvm/app
 
 settings:
   ktor: enabled
+  kotlin:
+    serialization: json
   jvm:
     mainClass: org.jetbrains.amper.ktor.ApplicationKt
 
@@ -15,3 +17,4 @@ dependencies:
 
 test-dependencies:
   - $ktor.server.testHost
+  - $ktor.client.contentNegotiation
