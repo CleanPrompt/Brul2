@@ -21,47 +21,37 @@ import nl.brul.service.ReportService
 fun Route.reportRoutes(
     reportService: ReportService
 ) {
+
     route("/reports") {
 
         get {
+
             val search =
                 call.request.queryParameters["search"]
 
             val type =
-                call.request.queryParameters["type"]
-                    ?.uppercase()
-                    ?.let { value ->
-                        ReportType.entries.find { reportType ->
-                            reportType.name == value
-                        }
-                    }
+                parseEnumParameter<ReportType>(
+                    name = "type",
+                    value = call.request.queryParameters["type"]
+                )
 
             val status =
-                call.request.queryParameters["status"]
-                    ?.uppercase()
-                    ?.let { value ->
-                        ReportStatus.entries.find { reportStatus ->
-                            reportStatus.name == value
-                        }
-                    }
+                parseEnumParameter<ReportStatus>(
+                    name = "status",
+                    value = call.request.queryParameters["status"]
+                )
 
             val urgency =
-                call.request.queryParameters["urgency"]
-                    ?.uppercase()
-                    ?.let { value ->
-                        Urgency.entries.find { reportUrgency ->
-                            reportUrgency.name == value
-                        }
-                    }
+                parseEnumParameter<Urgency>(
+                    name = "urgency",
+                    value = call.request.queryParameters["urgency"]
+                )
 
             val nuisanceType =
-                call.request.queryParameters["nuisanceType"]
-                    ?.uppercase()
-                    ?.let { value ->
-                        NuisanceType.entries.find { type ->
-                            type.name == value
-                        }
-                    }
+                parseEnumParameter<NuisanceType>(
+                    name = "nuisanceType",
+                    value = call.request.queryParameters["nuisanceType"]
+                )
 
             val reports =
                 reportService.getReports(
@@ -78,39 +68,31 @@ fun Route.reportRoutes(
                 }
 
             call.respond(
-                HttpStatusCode.OK,
-                response
+                status = HttpStatusCode.OK,
+                message = response
             )
         }
 
         get("/{id}") {
-            val reportId =
-                call.parameters["id"]
 
-            if (reportId == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest
+            val reportId =
+                requireReportId(
+                    call.parameters["id"]
                 )
-                return@get
-            }
 
             val report =
-                reportService.getReport(reportId)
-
-            if (report == null) {
-                call.respond(
-                    HttpStatusCode.NotFound
+                reportService.getReport(
+                    reportId = reportId
                 )
-                return@get
-            }
 
             call.respond(
-                HttpStatusCode.OK,
-                report.toResponse()
+                status = HttpStatusCode.OK,
+                message = report.toResponse()
             )
         }
 
         post("/safety") {
+
             val request =
                 call.receive<CreateSafetyReportRequest>()
 
@@ -131,12 +113,13 @@ fun Route.reportRoutes(
                 )
 
             call.respond(
-                HttpStatusCode.Created,
-                report.toResponse()
+                status = HttpStatusCode.Created,
+                message = report.toResponse()
             )
         }
 
         post("/nuisance") {
+
             val request =
                 call.receive<CreateNuisanceReportRequest>()
 
@@ -157,12 +140,13 @@ fun Route.reportRoutes(
                 )
 
             call.respond(
-                HttpStatusCode.Created,
-                report.toResponse()
+                status = HttpStatusCode.Created,
+                message = report.toResponse()
             )
         }
 
         post("/help") {
+
             val request =
                 call.receive<CreateHelpRequestRequest>()
 
@@ -182,21 +166,17 @@ fun Route.reportRoutes(
                 )
 
             call.respond(
-                HttpStatusCode.Created,
-                report.toResponse()
+                status = HttpStatusCode.Created,
+                message = report.toResponse()
             )
         }
 
         put("/{id}") {
-            val reportId =
-                call.parameters["id"]
 
-            if (reportId == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest
+            val reportId =
+                requireReportId(
+                    call.parameters["id"]
                 )
-                return@put
-            }
 
             val request =
                 call.receive<UpdateReportRequest>()
@@ -217,45 +197,26 @@ fun Route.reportRoutes(
                     currentUser = currentUser
                 )
 
-            if (report == null) {
-                call.respond(
-                    HttpStatusCode.NotFound
-                )
-                return@put
-            }
-
             call.respond(
-                HttpStatusCode.OK,
-                report.toResponse()
+                status = HttpStatusCode.OK,
+                message = report.toResponse()
             )
         }
 
         delete("/{id}") {
-            val reportId =
-                call.parameters["id"]
 
-            if (reportId == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest
+            val reportId =
+                requireReportId(
+                    call.parameters["id"]
                 )
-                return@delete
-            }
 
             val currentUser =
                 temporaryCurrentUser()
 
-            val deleted =
-                reportService.deleteReport(
-                    reportId = reportId,
-                    currentUser = currentUser
-                )
-
-            if (!deleted) {
-                call.respond(
-                    HttpStatusCode.NotFound
-                )
-                return@delete
-            }
+            reportService.deleteReport(
+                reportId = reportId,
+                currentUser = currentUser
+            )
 
             call.respond(
                 HttpStatusCode.NoContent
@@ -263,91 +224,83 @@ fun Route.reportRoutes(
         }
 
         post("/{id}/claim") {
-            val reportId =
-                call.parameters["id"]
 
-            if (reportId == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest
+            val reportId =
+                requireReportId(
+                    call.parameters["id"]
                 )
-                return@post
-            }
 
             val currentUser =
                 temporaryCurrentUser()
 
-            val claimed =
+            val report =
                 reportService.claimHelpRequest(
                     reportId = reportId,
                     currentUser = currentUser
                 )
 
-            if (!claimed) {
-                call.respond(
-                    HttpStatusCode.Conflict
-                )
-                return@post
-            }
-
-            val report =
-                reportService.getReport(reportId)
-
-            if (report == null) {
-                call.respond(
-                    HttpStatusCode.NotFound
-                )
-                return@post
-            }
-
             call.respond(
-                HttpStatusCode.OK,
-                report.toResponse()
+                status = HttpStatusCode.OK,
+                message = report.toResponse()
             )
         }
 
         post("/{id}/resolve") {
-            val reportId =
-                call.parameters["id"]
 
-            if (reportId == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest
+            val reportId =
+                requireReportId(
+                    call.parameters["id"]
                 )
-                return@post
-            }
 
             val currentUser =
                 temporaryCurrentUser()
 
-            val resolved =
+            val report =
                 reportService.resolveReport(
                     reportId = reportId,
                     currentUser = currentUser
                 )
 
-            if (!resolved) {
-                call.respond(
-                    HttpStatusCode.NotFound
-                )
-                return@post
-            }
-
-            val report =
-                reportService.getReport(reportId)
-
-            if (report == null) {
-                call.respond(
-                    HttpStatusCode.NotFound
-                )
-                return@post
-            }
-
             call.respond(
-                HttpStatusCode.OK,
-                report.toResponse()
+                status = HttpStatusCode.OK,
+                message = report.toResponse()
             )
         }
     }
+}
+
+private fun requireReportId(
+    reportId: String?
+): String {
+
+    require(
+        !reportId.isNullOrBlank()
+    ) {
+        "Report id is required."
+    }
+
+    return reportId
+}
+
+private inline fun <reified T : Enum<T>> parseEnumParameter(
+    name: String,
+    value: String?
+): T? {
+
+    if (value.isNullOrBlank()) {
+        return null
+    }
+
+    return enumValues<T>()
+        .find { enumValue ->
+            enumValue.name.equals(
+                other = value,
+                ignoreCase = true
+            )
+        }
+        ?: throw IllegalArgumentException(
+            "Invalid value '$value' for query parameter '$name'."
+        )
 }
 
 private fun temporaryCurrentUser(): User {

@@ -3,11 +3,8 @@ package nl.brul.routing
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.application.*
-import io.ktor.server.routing.*
 import io.ktor.server.testing.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,9 +17,8 @@ import nl.brul.dto.request.CreateHelpRequestRequest
 import nl.brul.dto.request.CreateNuisanceReportRequest
 import nl.brul.dto.request.CreateSafetyReportRequest
 import nl.brul.dto.request.UpdateReportRequest
+import nl.brul.dto.response.ErrorResponse
 import nl.brul.dto.response.ReportResponse
-import nl.brul.persistence.InMemoryReportRepository
-import nl.brul.service.ReportService
 import org.jetbrains.amper.ktor.module
 
 class ReportRoutesTest {
@@ -545,7 +541,7 @@ class ReportRoutesTest {
     }
 
     @Test
-    fun `POST safety with blank title currently returns InternalServerError`() = testApplication {
+    fun `POST safety with blank title returns BadRequest`() = testApplication {
         application {
             module()
         }
@@ -570,13 +566,13 @@ class ReportRoutesTest {
             }
 
         assertEquals(
-            HttpStatusCode.InternalServerError,
+            HttpStatusCode.BadRequest,
             response.status
         )
     }
 
     @Test
-    fun `POST safety with invalid latitude currently returns InternalServerError`() = testApplication {
+    fun `POST safety with invalid latitude returns BadRequest`() = testApplication {
         application {
             module()
         }
@@ -601,7 +597,7 @@ class ReportRoutesTest {
             }
 
         assertEquals(
-            HttpStatusCode.InternalServerError,
+            HttpStatusCode.BadRequest,
             response.status
         )
     }
@@ -1025,6 +1021,187 @@ class ReportRoutesTest {
         )
     }
 
+    @Test
+    fun `GET reports with invalid type returns BadRequest`() = testApplication {
+        application {
+            module()
+        }
+
+        val response =
+            client.get(
+                "/reports?type=BANANA"
+            )
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            response.status
+        )
+    }
+
+    @Test
+    fun `GET reports with invalid status returns BadRequest`() = testApplication {
+        application {
+            module()
+        }
+
+        val response =
+            client.get(
+                "/reports?status=BANANA"
+            )
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            response.status
+        )
+    }
+
+    @Test
+    fun `GET reports with invalid urgency returns BadRequest`() = testApplication {
+        application {
+            module()
+        }
+
+        val response =
+            client.get(
+                "/reports?urgency=BANANA"
+            )
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            response.status
+        )
+    }
+
+    @Test
+    fun `GET reports with invalid nuisance type returns BadRequest`() = testApplication {
+        application {
+            module()
+        }
+
+        val response =
+            client.get(
+                "/reports?nuisanceType=BANANA"
+            )
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            response.status
+        )
+    }
+
+    @Test
+    fun `resolving report twice returns Conflict`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val createdReport =
+            createSafetyReport(
+                client = client,
+                title = "Broken streetlight",
+                urgency = Urgency.HIGH
+            )
+
+        val firstResolveResponse =
+            client.post(
+                "/reports/${createdReport.id}/resolve"
+            )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            firstResolveResponse.status
+        )
+
+        val secondResolveResponse =
+            client.post(
+                "/reports/${createdReport.id}/resolve"
+            )
+
+        assertEquals(
+            HttpStatusCode.Conflict,
+            secondResolveResponse.status
+        )
+    }
+
+    @Test
+    fun `claiming safety report returns Conflict`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val createdReport =
+            createSafetyReport(
+                client = client,
+                title = "Unsafe crossing",
+                urgency = Urgency.HIGH
+            )
+
+        val response =
+            client.post(
+                "/reports/${createdReport.id}/claim"
+            )
+
+        assertEquals(
+            HttpStatusCode.Conflict,
+            response.status
+        )
+    }
+
+    @Test
+    fun `invalid type returns ErrorResponse`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val response =
+            client.get(
+                "/reports?type=BANANA"
+            )
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            response.status
+        )
+
+        val errorResponse =
+            response.body<ErrorResponse>()
+
+        assertEquals(
+            400,
+            errorResponse.status
+        )
+
+        assertEquals(
+            HttpStatusCode.BadRequest.description,
+            errorResponse.error
+        )
+
+        assertTrue(
+            errorResponse.message.isNotBlank()
+        )
+
+        assertTrue(
+            errorResponse.message.contains(
+                "type"
+            )
+        )
+
+        assertTrue(
+            errorResponse.message.contains(
+                "BANANA"
+            )
+        )
+    }
+
     private fun ApplicationTestBuilder.createJsonClient() =
         createClient {
             install(ContentNegotiation) {
@@ -1037,6 +1214,7 @@ class ReportRoutesTest {
         title: String,
         urgency: Urgency
     ): ReportResponse {
+
         val response =
             client.post("/reports/safety") {
                 contentType(ContentType.Application.Json)

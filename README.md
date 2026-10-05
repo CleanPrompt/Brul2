@@ -1,17 +1,66 @@
 # Brul
 
-**Versie: v0.14**
+Brul is een buurtapplicatie waarmee bewoners meldingen en hulpvragen in
+hun buurt kunnen aanmaken en bekijken. Deze repository bevat de backend
+voor Deel 1 van het project: een Web API gebouwd met Kotlin en Ktor.
 
-Brul is een buurtapplicatie waarin bewoners gebeurtenissen in hun buurt
-kunnen melden en bekijken. Het doel is om bewoners beter te informeren
-over wat er in hun omgeving gebeurt.
+## Huidige versie
 
-Deze repository bevat de backend van Brul, ontwikkeld in **Kotlin met
-Ktor**. Het project bevindt zich in actieve ontwikkeling. Het domein, de
-persistence-laag, service-laag en DTO-laag zijn geïmplementeerd. De
-basisrouting van de Ktor Web API is inmiddels volledig uitgewerkt.
+**v0.17 - Error Handling & Validation**
 
-## Huidige projectstructuur
+De backend ondersteunt momenteel het aanmaken, ophalen, zoeken,
+filteren, wijzigen, verwijderen, claimen en oplossen van reports.
+Centrale foutafhandeling en validatie zijn toegevoegd en de volledige
+testsuite bestaat momenteel uit **44 geslaagde tests**.
+
+## Functionaliteit
+
+Brul kent drie soorten reports:
+
+-   `SafetyReport` - veiligheidsmeldingen met een `Urgency`.
+-   `NuisanceReport` - overlastmeldingen met een `NuisanceType`.
+-   `HelpRequest` - hulpvragen die door een andere gebruiker geclaimd
+    kunnen worden.
+
+Reports hebben gedeelde eigenschappen zoals een titel, beschrijving,
+locatie, maker, aanmaakmoment en status.
+
+De API ondersteunt daarnaast:
+
+-   ophalen van een collectie reports;
+-   ophalen van een report op ID;
+-   aanmaken van de drie reporttypes;
+-   wijzigen en verwijderen van reports;
+-   oplossen van reports;
+-   claimen van `HelpRequest`;
+-   zoeken op titel en beschrijving;
+-   filteren op type, status, urgentie en overlasttype;
+-   combineren van zoek- en filtercriteria;
+-   uniforme foutresponses.
+
+## Architectuur
+
+De backend gebruikt een eenvoudige gelaagde architectuur:
+
+``` text
+HTTP request
+    |
+    v
+Routing
+    |
+    v
+Service
+    |
+    +----> Domain
+    |
+    v
+Repository
+    |
+    v
+In-memory persistence
+```
+
+De packages zijn als volgt verdeeld:
 
 ``` text
 nl.brul
@@ -25,248 +74,107 @@ nl.brul
 └── service
 ```
 
-## Domain
+### Verantwoordelijkheden
 
-De package `domain` bevat het domeinmodel en het centrale gedrag van
-Brul.
+-   `domain` bevat het domeinmodel en bewaakt geldige objecttoestand en
+    statusovergangen.
+-   `dto` bevat de request- en responsemodellen van de API.
+-   `routing` verwerkt HTTP-requests, queryparameters en responses.
+-   `service` bevat use-cases, businessregels en autorisatieregels.
+-   `persistence` abstraheert de opslag van reports.
+-   `config` bevat Ktor-configuratie, waaronder serialisatie, static
+    content en centrale error handling.
 
-De belangrijkste abstractie is `Report`. Brul ondersteunt drie soorten
-meldingen:
+## API
 
--   `SafetyReport` --- een veiligheidsmelding met een urgentieniveau.
--   `NuisanceReport` --- een overlastmelding met een type overlast.
--   `HelpRequest` --- een hulpverzoek dat door een andere gebruiker kan
-    worden geclaimd.
+De huidige report-endpoints zijn:
 
-Gedeelde gegevens en gedrag zijn ondergebracht in de abstracte klasse
-`Report`. Het domein bevat daarnaast onder andere `User`, `Location`,
-rollen, statussen, urgentieniveaus en typen overlast.
+Methode    Endpoint                  Functie
+  ---------- ------------------------- -------------------------------------
+`GET`      `/reports`                Reports ophalen, zoeken en filteren
+`GET`      `/reports/{id}`           Eén report ophalen
+`POST`     `/reports/safety`         SafetyReport aanmaken
+`POST`     `/reports/nuisance`       NuisanceReport aanmaken
+`POST`     `/reports/help`           HelpRequest aanmaken
+`PUT`      `/reports/{id}`           Report wijzigen
+`DELETE`   `/reports/{id}`           Report verwijderen
+`POST`     `/reports/{id}/claim`     HelpRequest claimen
+`POST`     `/reports/{id}/resolve`   Report oplossen
 
-`HelpRequest` implementeert de interface `Claimable`, omdat alleen
-hulpverzoeken geclaimd kunnen worden.
+### Search & Filter
 
-Belangrijke geïmplementeerde domeinregels:
+`GET /reports` ondersteunt de volgende optionele queryparameters:
 
--   Iedere melding krijgt automatisch een ID.
--   Iedere melding krijgt automatisch een aanmaaktijdstip.
--   Een nieuwe melding begint met de status `OPEN`.
--   De titel mag niet leeg zijn.
--   Latitude moet tussen `-90` en `90` liggen.
--   Longitude moet tussen `-180` en `180` liggen.
--   Bewerkbare gegevens worden via gecontroleerd domeingedrag gewijzigd.
--   `id`, `createdBy` en `createdAt` blijven onveranderbaar.
--   Een melding kan worden afgerond.
--   Alleen een open `HelpRequest` kan worden geclaimd.
--   Het claimen van een `HelpRequest` verandert de status naar
-    `CLAIMED`.
+-   `search`
+-   `type`
+-   `status`
+-   `urgency`
+-   `nuisanceType`
 
-## DTO
-
-De package `dto` bevat de Data Transfer Objects voor communicatie via de
-Web API.
-
-``` text
-dto
-├── request
-│   ├── CreateSafetyReportRequest
-│   ├── CreateNuisanceReportRequest
-│   ├── CreateHelpRequestRequest
-│   └── UpdateReportRequest
-└── response
-    └── ReportResponse
-```
-
-De drie soorten meldingen hebben ieder een eigen create-request omdat ze
-verschillende gegevens nodig hebben. `ReportResponse` vormt het algemene
-responsemodel.
-
-De DTO's gebruiken `kotlinx.serialization` zodat Ktor Kotlin-objecten en
-JSON kan serialiseren en deserialiseren.
-
-`ReportMapper` zet domeinobjecten van het type `Report` om naar
-`ReportResponse`. Hierdoor worden domeinobjecten niet rechtstreeks als
-API-response gebruikt.
-
-## Persistence
-
-De package `persistence` bepaalt hoe meldingen worden opgeslagen en
-opgehaald.
-
-`ReportRepository` vormt de repository-abstractie voor het ophalen,
-zoeken, opslaan, bijwerken en verwijderen van meldingen.
-
-De huidige implementatie is `InMemoryReportRepository`. Meldingen worden
-voorlopig in het geheugen opgeslagen met behulp van een
-Kotlin-collectie.
-
-Hierdoor kan de persistence-implementatie later worden vervangen zonder
-dat het domein of de service-laag volledig aangepast hoeft te worden.
-
-## Service
-
-De package `service` bevat de applicatielogica tussen routing, domein en
-persistence.
-
-`ReportService` ondersteunt momenteel:
-
--   alle meldingen ophalen;
--   één melding ophalen;
--   een `SafetyReport` aanmaken;
--   een `NuisanceReport` aanmaken;
--   een `HelpRequest` aanmaken;
--   een melding wijzigen;
--   een melding verwijderen;
--   een `HelpRequest` claimen;
--   een melding afronden.
-
-De service bewaakt daarnaast gebruikersafhankelijke bedrijfsregels. Een
-gewone gebruiker kan zijn eigen meldingen beheren, een administrator kan
-iedere melding beheren en een gebruiker kan zijn eigen `HelpRequest`
-niet claimen.
-
-Het domein bewaakt een geldige toestand en domeingedrag; de service
-bepaalt of een gebruiker een bepaalde handeling mag uitvoeren.
-
-## Config
-
-De package `config` bevat configuratie voor Ktor.
-
-`ContentNegotiation` is geconfigureerd met `kotlinx.serialization`.
-Hierdoor kan de Web API JSON-requests verwerken en responses als JSON
-terugsturen.
-
-## Routing
-
-De package `routing` bevat de HTTP-routes van de Ktor Web API.
-
-De volgende basisroutes zijn geïmplementeerd:
+Voorbeelden:
 
 ``` text
-GET    /reports
-GET    /reports/{id}
-
-POST   /reports/safety
-POST   /reports/nuisance
-POST   /reports/help
-
-PUT    /reports/{id}
-DELETE /reports/{id}
-
-POST   /reports/{id}/claim
-POST   /reports/{id}/resolve
+GET /reports?search=straat
+GET /reports?type=SAFETY
+GET /reports?status=OPEN
+GET /reports?urgency=HIGH
+GET /reports?nuisanceType=NOISE
+GET /reports?type=SAFETY&urgency=HIGH&search=street
 ```
 
-De routes gebruiken `ReportService` voor de applicatielogica en
-`ReportMapper` voor het omzetten van domeinobjecten naar API-responses.
+Zoeken op `title` en `description` is hoofdletterongevoelig.
+Queryparameters kunnen worden gecombineerd.
 
-Authenticatie is nog niet geïmplementeerd. Tijdens de huidige
-ontwikkelfase gebruikt de routing daarom tijdelijk een vaste gebruiker.
-Deze tijdelijke oplossing wordt vervangen wanneer authenticatie en
-autorisatie worden geïntegreerd.
+## Error handling en validatie
 
-## Architectuur
+Vanaf v0.17 gebruikt Brul Ktor `StatusPages` voor centrale
+foutafhandeling. API-fouten worden teruggestuurd als een uniforme
+`ErrorResponse`.
 
-De backend gebruikt een gelaagde structuur:
+Voorbeeld:
 
-``` text
-HTTP request
-     ↓
-Ktor Routing
-     ↓
-Request DTO
-     ↓
-Service
-     ↓
-Repository
-     ↓
-Domain
+``` json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid value 'BANANA' for query parameter 'type'."
+}
 ```
 
-Responses lopen via de DTO-laag terug naar de client:
+De belangrijkste HTTP-statuscodes zijn:
 
-``` text
-Domain
-   ↓
-ReportMapper
-   ↓
-Response DTO
-   ↓
-JSON response
-```
+  -----------------------------------------------------------------------
+Status                              Betekenis
+  ----------------------------------- -----------------------------------
+`200 OK`                            Request succesvol
 
-Laag          Verantwoordelijkheid
-  ------------- ----------------------------------------------------
-Domain        Domeinmodel, toestand en domeingedrag
-Persistence   Opslaan en ophalen van meldingen
-Service       Use-cases en gebruikersafhankelijke bedrijfsregels
-DTO           Gegevensoverdracht van en naar de API
-Routing       HTTP-endpoints en koppeling met de service
-Config        Configuratie van Ktor-functionaliteit
+`201 Created`                       Report succesvol aangemaakt
 
-De service benadert persistence via `ReportRepository`. Hierdoor is
-`ReportService` niet direct afhankelijk van `InMemoryReportRepository`.
+`204 No Content`                    Report succesvol verwijderd
 
-De concrete dependencies worden momenteel handmatig gekoppeld. Er wordt
-geen dependency-injectionframework gebruikt.
+`400 Bad Request`                   Ongeldige invoer of queryparameter
 
-## Objectgeoriënteerd ontwerp
+`403 Forbidden`                     Gebruiker mag de actie niet
+uitvoeren
 
-De implementatie gebruikt onder andere:
+`404 Not Found`                     Report bestaat niet
 
--   **Abstractie** --- `Report` bevat gedeelde eigenschappen en gedrag.
--   **Overerving** --- de drie reporttypen erven van `Report`.
--   **Encapsulatie** --- toestand wordt via gecontroleerde functies
-    zoals `update`, `claim` en `resolve` gewijzigd.
--   **Interfaces** --- `Claimable` beschrijft claim-gedrag.
--   **Polymorfisme** --- repository en service werken met het
-    gemeenschappelijke type `Report`.
--   **Data classes** --- onder andere voor `User`, `Location` en DTO's.
--   **Enums** --- voor rollen, statussen, urgentieniveaus en typen
-    overlast.
+`409 Conflict`                      Actie conflicteert met een
+businessregel of huidige status
+  -----------------------------------------------------------------------
 
-## Web API
-
-De basis van het API-contract is nu in routing geïmplementeerd.
-
-Ondersteunde operaties:
-
-``` text
-GET    /reports                 Alle meldingen ophalen
-GET    /reports/{id}            Eén melding ophalen
-POST   /reports/safety          SafetyReport aanmaken
-POST   /reports/nuisance        NuisanceReport aanmaken
-POST   /reports/help            HelpRequest aanmaken
-PUT    /reports/{id}            Melding wijzigen
-DELETE /reports/{id}            Melding verwijderen
-POST   /reports/{id}/claim      HelpRequest claimen
-POST   /reports/{id}/resolve    Melding afronden
-```
-
-Zoeken en filteren via queryparameters worden later toegevoegd.
-
-De foutafhandeling is nog niet definitief. De service gebruikt op
-sommige plaatsen momenteel `null` of `Boolean` als resultaat. Daardoor
-kan de routing nog niet altijd onderscheid maken tussen bijvoorbeeld
-`404 Not Found`, `403 Forbidden` en `409 Conflict`. Dit wordt in een
-volgende fase verbeterd.
+`401 Unauthorized` wordt relevant zodra echte authentication is
+geïmplementeerd.
 
 ## Testen
 
-Unit tests controleren het gedrag van het domein en de service-laag. De
-tests controleren onder andere:
+De backend wordt getest met Kotlin Test en Ktor Test Host. Er zijn unit
+tests voor domein- en servicelogica en integration tests voor de
+HTTP-routes.
 
--   domeinvalidatie;
--   statuswijzigingen;
--   het claimen van hulpverzoeken;
--   permissies binnen de service-laag;
--   service- en repositorygedrag.
+De huidige teststatus van v0.17 is:
 
-Daarnaast zijn Ktor integration tests gestart.
-
-Momenteel worden onder andere de volgende API-scenario's getest:
-
--   `GET /reports` retourneert `200 OK`.
--   `GET /reports/{id}` met een onbekend ID retourneert `404 Not Found`.
+**44 tests passed.**
 
 Tests uitvoeren:
 
@@ -274,59 +182,48 @@ Tests uitvoeren:
 .\kotlin.bat test
 ```
 
-Huidige teststatus voor v0.14:
+Een specifieke testklasse uitvoeren kan bijvoorbeeld met:
 
-``` text
-Tests: 16 passed
+``` powershell
+.\kotlin.bat test --include-classes="nl.brul.routing.ReportRoutesTest"
 ```
 
-De overige nieuwe routes zijn geïmplementeerd en compileren, maar moeten
-nog uitgebreider via HTTP-integration tests worden gecontroleerd.
+## Techniek
 
-## Technologie
+Brul gebruikt momenteel:
 
-Momenteel gebruikt het project:
+-   Kotlin/JVM;
+-   Ktor;
+-   Amper / Kotlin CLI;
+-   `kotlinx.serialization`;
+-   Ktor `ContentNegotiation`;
+-   Ktor `StatusPages`;
+-   Kotlin Test;
+-   Ktor Test Host;
+-   in-memory persistence via `ReportRepository`.
 
--   Kotlin
--   Ktor
--   Kotlin CLI / Amper
--   kotlinx.serialization
--   Ktor ContentNegotiation
--   In-memory persistence
--   Kotlin Test
--   Ktor Test Host
--   Git en GitHub
+## Huidige beperkingen
 
-## Volgende stappen
+De backend is nog in ontwikkeling. In v0.17 gelden onder andere de
+volgende beperkingen:
 
-1.  De nieuwe POST-, PUT-, DELETE-, claim- en resolve-routes via
-    integration tests controleren.
-2.  Zoeken en filteren implementeren.
-3.  Consistente API-validatie en foutafhandeling toevoegen.
-4.  Authenticatie en autorisatie integreren.
-5.  Aanvullende integration tests schrijven.
-6.  Persistente databaseopslag toevoegen.
-7.  API-documentatie en het API-testrapport verder uitwerken.
+-   authentication is nog niet geïmplementeerd;
+-   routes gebruiken tijdelijk een vaste testgebruiker;
+-   persistence is nog in-memory;
+-   MariaDB is gepland voor een latere versie;
+-   de AI-component voor de opdracht is nog niet geïmplementeerd.
 
-## Status
+## Roadmap
 
-Huidige status voor **v0.14**:
+De eerstvolgende geplande stappen zijn:
 
--   Domain: **geïmplementeerd**
--   Repository en in-memory persistence: **geïmplementeerd**
--   Service-laag: **geïmplementeerd**
--   DTO request/response-laag: **geïmplementeerd**
--   JSON-serialisatie: **geïmplementeerd**
--   Ktor ContentNegotiation: **geïmplementeerd**
--   Report mapping: **geïmplementeerd**
--   Basisrouting Web API: **geïmplementeerd**
--   GET-routes: **geïmplementeerd en gedeeltelijk integration-tested**
--   POST-routes: **geïmplementeerd, integration tests volgen**
--   PUT-route: **geïmplementeerd, integration test volgt**
--   DELETE-route: **geïmplementeerd, integration test volgt**
--   Claim/resolve-routes: **geïmplementeerd, integration tests volgen**
--   Unit- en integration tests: **16 tests geslaagd**
--   Zoeken/filteren: **nog niet geïmplementeerd**
--   Definitieve foutafhandeling: **nog niet geïmplementeerd**
--   Authenticatie/autorisatie: **nog niet geïmplementeerd**
--   Database persistence: **nog niet geïmplementeerd**
+1.  Authentication en koppeling met de bestaande autorisatieregels.
+2.  MariaDB-persistence.
+3.  AI-component voor Deel 1.
+4.  Definitieve API-tests en testdocumentatie.
+5.  UML en ontwikkeldocument bijwerken.
+6.  Eindcontrole van de requirements voor Deel 1.
+
+## Changelog
+
+Zie [`CHANGELOG.md`](CHANGELOG.md) voor de wijzigingen per versie.

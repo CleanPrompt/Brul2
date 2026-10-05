@@ -24,6 +24,7 @@ class ReportService(
         urgency: Urgency? = null,
         nuisanceType: NuisanceType? = null
     ): List<Report> {
+
         return reportRepository
             .findAll()
             .asSequence()
@@ -40,7 +41,8 @@ class ReportService(
                 )
             }
             .filter { report ->
-                status == null || report.status == status
+                status == null ||
+                        report.status == status
             }
             .filter { report ->
                 urgency == null ||
@@ -59,8 +61,10 @@ class ReportService(
             .toList()
     }
 
-    fun getReport(reportId: String): Report? {
-        return reportRepository.findById(reportId)
+    fun getReport(
+        reportId: String
+    ): Report {
+        return findReportOrThrow(reportId)
     }
 
     fun createSafetyReport(
@@ -71,6 +75,7 @@ class ReportService(
         urgency: Urgency,
         currentUser: User
     ): SafetyReport {
+
         val report = SafetyReport(
             title = title,
             description = description,
@@ -93,6 +98,7 @@ class ReportService(
         nuisanceType: NuisanceType,
         currentUser: User
     ): NuisanceReport {
+
         val report = NuisanceReport(
             title = title,
             description = description,
@@ -114,6 +120,7 @@ class ReportService(
         location: Location,
         currentUser: User
     ): HelpRequest {
+
         val report = HelpRequest(
             title = title,
             description = description,
@@ -134,14 +141,15 @@ class ReportService(
         photo: String?,
         location: Location,
         currentUser: User
-    ): Report? {
-        val report =
-            reportRepository.findById(reportId)
-                ?: return null
+    ): Report {
 
-        if (!canManageReport(report, currentUser)) {
-            return null
-        }
+        val report =
+            findReportOrThrow(reportId)
+
+        requireCanManageReport(
+            report = report,
+            currentUser = currentUser
+        )
 
         report.update(
             title = title,
@@ -151,70 +159,128 @@ class ReportService(
         )
 
         return reportRepository.update(report)
+            ?: throw ReportNotFoundException(reportId)
     }
 
     fun deleteReport(
         reportId: String,
         currentUser: User
-    ): Boolean {
+    ) {
+
         val report =
-            reportRepository.findById(reportId)
-                ?: return false
+            findReportOrThrow(reportId)
 
-        if (!canManageReport(report, currentUser)) {
-            return false
+        requireCanManageReport(
+            report = report,
+            currentUser = currentUser
+        )
+
+        val deleted =
+            reportRepository.deleteById(reportId)
+
+        if (!deleted) {
+            throw ReportNotFoundException(reportId)
         }
-
-        return reportRepository.deleteById(reportId)
     }
 
     fun claimHelpRequest(
         reportId: String,
         currentUser: User
-    ): Boolean {
+    ): HelpRequest {
+
         val report =
-            reportRepository.findById(reportId)
-                ?: return false
+            findReportOrThrow(reportId)
 
         if (report !is HelpRequest) {
-            return false
+            throw ConflictException(
+                "Only a HelpRequest can be claimed."
+            )
         }
 
         if (report.createdBy.id == currentUser.id) {
-            return false
+            throw ConflictException(
+                "You cannot claim your own HelpRequest."
+            )
         }
 
-        report.claim(currentUser)
+        try {
+            report.claim(currentUser)
+        } catch (exception: IllegalStateException) {
+            throw ConflictException(
+                exception.message
+                    ?: "HelpRequest cannot be claimed."
+            )
+        }
 
-        return true
+        reportRepository.update(report)
+
+        return report
     }
 
     fun resolveReport(
         reportId: String,
         currentUser: User
-    ): Boolean {
-        val report =
-            reportRepository.findById(reportId)
-                ?: return false
+    ): Report {
 
-        if (!canManageReport(report, currentUser)) {
-            return false
+        val report =
+            findReportOrThrow(reportId)
+
+        requireCanManageReport(
+            report = report,
+            currentUser = currentUser
+        )
+
+        try {
+            report.resolve()
+        } catch (exception: IllegalStateException) {
+            throw ConflictException(
+                exception.message
+                    ?: "Report cannot be resolved."
+            )
         }
 
-        report.resolve()
+        reportRepository.update(report)
 
-        return true
+        return report
+    }
+
+    private fun findReportOrThrow(
+        reportId: String
+    ): Report {
+
+        return reportRepository.findById(reportId)
+            ?: throw ReportNotFoundException(reportId)
+    }
+
+    private fun requireCanManageReport(
+        report: Report,
+        currentUser: User
+    ) {
+
+        val isOwner =
+            report.createdBy.id == currentUser.id
+
+        val isAdmin =
+            currentUser.role == Role.ADMIN
+
+        if (!isOwner && !isAdmin) {
+            throw ForbiddenException(
+                "You are not allowed to manage this report."
+            )
+        }
     }
 
     private fun matchesSearch(
         report: Report,
         search: String?
     ): Boolean {
+
         if (search.isNullOrBlank()) {
             return true
         }
 
-        val searchTerm = search.trim()
+        val searchTerm =
+            search.trim()
 
         val titleMatches =
             report.title.contains(
@@ -228,18 +294,21 @@ class ReportService(
                 ignoreCase = true
             ) ?: false
 
-        return titleMatches || descriptionMatches
+        return titleMatches ||
+                descriptionMatches
     }
 
     private fun matchesType(
         report: Report,
         type: ReportType?
     ): Boolean {
+
         if (type == null) {
             return true
         }
 
         return when (type) {
+
             ReportType.SAFETY ->
                 report is SafetyReport
 
@@ -249,18 +318,5 @@ class ReportService(
             ReportType.HELP ->
                 report is HelpRequest
         }
-    }
-
-    private fun canManageReport(
-        report: Report,
-        currentUser: User
-    ): Boolean {
-        val isOwner =
-            report.createdBy.id == currentUser.id
-
-        val isAdmin =
-            currentUser.role == Role.ADMIN
-
-        return isOwner || isAdmin
     }
 }

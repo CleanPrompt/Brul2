@@ -3,6 +3,74 @@
 Alle relevante wijzigingen aan Brul vanaf versie 0.14 worden in dit
 bestand bijgehouden.
 
+## 0.17
+
+### Toegevoegd
+
+-   Centrale error handling toegevoegd met Ktor `StatusPages`.
+-   `ErrorResponse` toegevoegd voor een uniforme JSON-structuur bij
+    API-fouten.
+-   `ReportNotFoundException` toegevoegd voor niet-bestaande reports.
+-   `ForbiddenException` toegevoegd voor acties waarvoor een gebruiker
+    niet bevoegd is.
+-   `ConflictException` toegevoegd voor conflicten met de huidige
+    toestand of businessregels.
+-   Validatiefouten vanuit het domein worden vertaald naar
+    `400 Bad Request`.
+-   Niet-bestaande reports worden vertaald naar `404 Not Found`.
+-   Niet-toegestane acties kunnen worden vertaald naar `403 Forbidden`.
+-   Conflicten met businessregels of de huidige status worden vertaald
+    naar `409 Conflict`.
+-   Ongeldige waarden voor enum-queryparameters worden afgewezen met
+    `400 Bad Request`.
+-   Integration tests toegevoegd voor ongeldige waarden van `type`,
+    `status`, `urgency` en `nuisanceType`.
+-   Integration test toegevoegd voor het twee keer oplossen van
+    hetzelfde report.
+-   Integration test toegevoegd voor het claimen van een `SafetyReport`.
+-   Integration test toegevoegd voor de inhoud van de uniforme
+    `ErrorResponse`.
+
+### Gewijzigd
+
+-   `ReportService` gebruikt expliciete exceptions in plaats van `null`-
+    en `Boolean`-resultaten om foutgevallen aan te geven.
+-   `getReport()` retourneert een `Report` of gooit een
+    `ReportNotFoundException`.
+-   `updateReport()` retourneert het gewijzigde `Report` en gebruikt
+    exceptions voor foutgevallen.
+-   `deleteReport()` retourneert geen `Boolean` meer; een succesvolle
+    uitvoering heeft geen resultaat en foutgevallen worden via
+    exceptions afgehandeld.
+-   `claimHelpRequest()` retourneert de gewijzigde `HelpRequest` en
+    gebruikt `ConflictException` bij een ongeldige claim.
+-   `resolveReport()` retourneert het gewijzigde `Report` en gebruikt
+    `ConflictException` wanneer oplossen niet is toegestaan.
+-   Gedeelde controles voor het vinden en beheren van reports zijn
+    gecentraliseerd in `ReportService`.
+-   `ReportRoutes` vereenvoudigd doordat foutafhandeling niet langer per
+    route handmatig wordt uitgevoerd.
+-   Verwerking van report-ID's en enum-queryparameters in de routing
+    consistenter gemaakt.
+-   `Application.kt` configureert nu ook de centrale error handling.
+-   `module.yaml` uitgebreid met de Ktor `StatusPages`-dependency.
+-   Bestaande service- en routingtests aangepast aan de nieuwe
+    servicecontracten en HTTP-statuscodes.
+
+### Teststatus
+
+-   Volledige testsuite na de error-handling- en validatiefase succesvol
+    uitgevoerd.
+-   Validatie van een lege titel retourneert nu `400 Bad Request` in
+    plaats van `500 Internal Server Error`.
+-   Validatie van ongeldige locatiecoördinaten retourneert nu
+    `400 Bad Request` in plaats van `500 Internal Server Error`.
+-   Ongeldige enum-queryparameters worden getest als `400 Bad Request`.
+-   Conflicterende acties, zoals een report twee keer oplossen of een
+    `SafetyReport` claimen, worden getest als `409 Conflict`.
+-   De JSON-structuur van `ErrorResponse` wordt gecontroleerd.
+-   **44 tests passed.**
+
 ## 0.16
 
 ### Toegevoegd

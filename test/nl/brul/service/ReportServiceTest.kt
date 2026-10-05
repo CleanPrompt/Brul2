@@ -1,5 +1,9 @@
 package nl.brul.service
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import nl.brul.domain.HelpRequest
 import nl.brul.domain.Location
 import nl.brul.domain.NuisanceReport
@@ -8,10 +12,6 @@ import nl.brul.domain.ReportStatus
 import nl.brul.domain.Role
 import nl.brul.domain.User
 import nl.brul.persistence.InMemoryReportRepository
-import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
-import kotlin.test.assertEquals
 
 class ReportServiceTest {
 
@@ -40,8 +40,11 @@ class ReportServiceTest {
 
     @Test
     fun `user cannot claim own help request`() {
-        val repository = InMemoryReportRepository()
-        val service = ReportService(repository)
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
 
         val helpRequest = HelpRequest(
             title = "Need help",
@@ -53,19 +56,36 @@ class ReportServiceTest {
 
         repository.save(helpRequest)
 
-        val result = service.claimHelpRequest(
-            reportId = helpRequest.id,
-            currentUser = owner
+        val exception =
+            assertFailsWith<ConflictException> {
+                service.claimHelpRequest(
+                    reportId = helpRequest.id,
+                    currentUser = owner
+                )
+            }
+
+        assertEquals(
+            "You cannot claim your own HelpRequest.",
+            exception.message
         )
 
-        assertFalse(result)
-        assertEquals(ReportStatus.OPEN, helpRequest.status)
+        assertEquals(
+            ReportStatus.OPEN,
+            helpRequest.status
+        )
+
+        assertNull(
+            helpRequest.claimedBy
+        )
     }
 
     @Test
     fun `another user can claim help request`() {
-        val repository = InMemoryReportRepository()
-        val service = ReportService(repository)
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
 
         val helpRequest = HelpRequest(
             title = "Need help",
@@ -77,20 +97,35 @@ class ReportServiceTest {
 
         repository.save(helpRequest)
 
-        val result = service.claimHelpRequest(
-            reportId = helpRequest.id,
-            currentUser = otherUser
+        val result =
+            service.claimHelpRequest(
+                reportId = helpRequest.id,
+                currentUser = otherUser
+            )
+
+        assertEquals(
+            helpRequest.id,
+            result.id
         )
 
-        assertTrue(result)
-        assertEquals(otherUser, helpRequest.claimedBy)
-        assertEquals(ReportStatus.CLAIMED, helpRequest.status)
+        assertEquals(
+            otherUser,
+            result.claimedBy
+        )
+
+        assertEquals(
+            ReportStatus.CLAIMED,
+            result.status
+        )
     }
 
     @Test
     fun `user cannot delete report of another user`() {
-        val repository = InMemoryReportRepository()
-        val service = ReportService(repository)
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
 
         val report = NuisanceReport(
             title = "Loud music",
@@ -103,19 +138,32 @@ class ReportServiceTest {
 
         repository.save(report)
 
-        val result = service.deleteReport(
-            reportId = report.id,
-            currentUser = otherUser
+        val exception =
+            assertFailsWith<ForbiddenException> {
+                service.deleteReport(
+                    reportId = report.id,
+                    currentUser = otherUser
+                )
+            }
+
+        assertEquals(
+            "You are not allowed to manage this report.",
+            exception.message
         )
 
-        assertFalse(result)
-        assertEquals(report, repository.findById(report.id))
+        assertEquals(
+            report,
+            repository.findById(report.id)
+        )
     }
 
     @Test
     fun `admin can delete report of another user`() {
-        val repository = InMemoryReportRepository()
-        val service = ReportService(repository)
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
 
         val report = NuisanceReport(
             title = "Loud music",
@@ -128,12 +176,13 @@ class ReportServiceTest {
 
         repository.save(report)
 
-        val result = service.deleteReport(
+        service.deleteReport(
             reportId = report.id,
             currentUser = admin
         )
 
-        assertTrue(result)
-        assertEquals(null, repository.findById(report.id))
+        assertNull(
+            repository.findById(report.id)
+        )
     }
 }

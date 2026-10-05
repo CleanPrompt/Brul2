@@ -1,6 +1,7 @@
 package org.jetbrains.amper.ktor
 
 import io.ktor.server.application.*
+import nl.brul.config.configureErrorHandling
 import nl.brul.config.configureSerialization
 import nl.brul.config.configureStaticContent
 
@@ -11,6 +12,8 @@ fun main(args: Array<String>) {
 fun Application.module() {
 
     configureSerialization()
+
+    configureErrorHandling()
 
     configureRouting()
 
