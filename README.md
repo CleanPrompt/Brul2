@@ -6,7 +6,7 @@ voor Deel 1 van het project: een Web API gebouwd met Kotlin en Ktor.
 
 ## Huidige versie
 
-**v0.18.1 - Domeinlogica**
+**v0.18.2 - Domeinlogica en API-demo**
 
 De backend ondersteunt momenteel het aanmaken, ophalen, zoeken,
 filteren, wijzigen, verwijderen, claimen en oplossen van reports.
@@ -205,6 +205,32 @@ Een specifieke testklasse uitvoeren kan bijvoorbeeld met:
 ``` powershell
 .\kotlin.bat test --include-classes="nl.brul.routing.ReportRoutesTest"
 ```
+
+## API-demo met HTTP-requests
+
+Start de server:
+
+``` powershell
+.\kotlin.bat run
+```
+
+De API draait dan op `http://localhost:8080` en start met demodata. Tot
+authentication is geïmplementeerd, worden alle requests uitgevoerd als
+demogebruiker `anna` (`user-1`).
+
+In `test/http-requests/` staan drie user flows voor de IntelliJ HTTP
+Client:
+
+| Bestand                         | Inhoud                                                                   |
+|---------------------------------|--------------------------------------------------------------------------|
+| `1-search-and-filter-flow.http` | Ophalen, zoeken en filteren; ongeldige filterwaarde en onbekend ID       |
+| `2-report-lifecycle-flow.http`  | Aanmaken, validatie, wijzigen, oplossen en verwijderen van eigen reports |
+| `3-business-rules-flow.http`    | Domeinregels op de demodata: rechten, claimen en oplossen door de helper |
+
+Open een bestand en kies **Run All Requests in File**. Elke request
+controleert de verwachte statuscode en melding. Flow 3 wijzigt de
+demodata; start de server opnieuw voordat je die flow nog een keer
+uitvoert.
 
 ## Techniek
 

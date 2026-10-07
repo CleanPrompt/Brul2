@@ -1,0 +1,156 @@
+# Brul - flow 3: domeinregels op de demodata
+#
+# Start de server (opnieuw) met: .\kotlin.bat run
+# Deze flow gebruikt de demodata en claimt en lost een hulpvraag op. Start de
+# server daarom opnieuw voordat je deze flow nog een keer uitvoert.
+#
+# Alle requests worden uitgevoerd als demogebruiker anna (user-1). In de demodata:
+# - "Broken streetlight on the Kerkstraat" en "Help carrying groceries" zijn van anna
+# - "Graffiti on the playground fence" en "Help with the garden" zijn van bram
+#   ("Help with the garden" is al geclaimd door fatima)
+# - "Walking the dog this week" is van fatima en nog open
+
+### STAP 1: Demodata ophalen en de ID's onthouden
+GET http://localhost:8080/reports
+
+> {%
+    function findByTitle(title) {
+        for (var i = 0; i < response.body.length; i++) {
+            if (response.body[i].title === title) {
+                return response.body[i];
+            }
+        }
+        return null;
+    }
+
+    var streetlight = findByTitle("Broken streetlight on the Kerkstraat");
+    var graffiti = findByTitle("Graffiti on the playground fence");
+    var groceries = findByTitle("Help carrying groceries");
+    var garden = findByTitle("Help with the garden");
+    var dog = findByTitle("Walking the dog this week");
+
+    client.test("De demodata is aanwezig en nog niet gewijzigd", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(streetlight !== null && graffiti !== null && groceries !== null && garden !== null && dog !== null, "Demodata ontbreekt: start de server opnieuw");
+        client.assert(dog.status === "OPEN", "De hulpvraag van fatima is al gebruikt: start de server opnieuw");
+    });
+
+    if (streetlight !== null) { client.global.set("streetlightId", streetlight.id); }
+    if (graffiti !== null) { client.global.set("graffitiId", graffiti.id); }
+    if (groceries !== null) { client.global.set("groceriesId", groceries.id); }
+    if (garden !== null) { client.global.set("gardenId", garden.id); }
+    if (dog !== null) { client.global.set("dogId", dog.id); }
+%}
+
+### STAP 2: Rechten: anna mag de melding van bram niet wijzigen
+PUT http://localhost:8080/reports/{{graffitiId}}
+Content-Type: application/json
+
+{
+  "title": "Graffiti removed",
+  "description": null,
+  "photo": null,
+  "latitude": 52.0720,
+  "longitude": 4.3062
+}
+
+> {%
+    client.test("403 Forbidden: alleen de maker of een admin mag wijzigen", function () {
+        client.assert(response.status === 403, "Verwachtte 403 Forbidden maar kreeg " + response.status);
+        client.assert(response.body.message === "You are not allowed to manage this report.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 3: Rechten: anna mag de melding van bram niet oplossen
+POST http://localhost:8080/reports/{{graffitiId}}/resolve
+
+> {%
+    client.test("403 Forbidden: alleen de maker of een admin mag oplossen", function () {
+        client.assert(response.status === 403, "Verwachtte 403 Forbidden maar kreeg " + response.status);
+        client.assert(response.body.message === "You are not allowed to resolve this report.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 4: Rechten: anna mag de melding van bram niet verwijderen
+DELETE http://localhost:8080/reports/{{graffitiId}}
+
+> {%
+    client.test("403 Forbidden: alleen de maker of een admin mag verwijderen", function () {
+        client.assert(response.status === 403, "Verwachtte 403 Forbidden maar kreeg " + response.status);
+        client.assert(response.body.message === "You are not allowed to manage this report.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 5: Claimen: je eigen hulpvraag claimen kan niet
+POST http://localhost:8080/reports/{{groceriesId}}/claim
+
+> {%
+    client.test("409 Conflict: je kunt je eigen HelpRequest niet claimen", function () {
+        client.assert(response.status === 409, "Verwachtte 409 Conflict maar kreeg " + response.status);
+        client.assert(response.body.message === "You cannot claim your own HelpRequest.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 6: Claimen: een al geclaimde hulpvraag claimen kan niet
+POST http://localhost:8080/reports/{{gardenId}}/claim
+
+> {%
+    client.test("409 Conflict: alleen een open HelpRequest kan geclaimd worden", function () {
+        client.assert(response.status === 409, "Verwachtte 409 Conflict maar kreeg " + response.status);
+        client.assert(response.body.message === "Only an open HelpRequest can be claimed.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 7: Claimen: een veiligheidsmelding is niet Claimable
+POST http://localhost:8080/reports/{{streetlightId}}/claim
+
+> {%
+    client.test("409 Conflict: alleen een HelpRequest kan geclaimd worden", function () {
+        client.assert(response.status === 409, "Verwachtte 409 Conflict maar kreeg " + response.status);
+        client.assert(response.body.message === "Only a HelpRequest can be claimed.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 8: Claimen: anna claimt de open hulpvraag van fatima
+POST http://localhost:8080/reports/{{dogId}}/claim
+
+> {%
+    client.test("200 OK: status CLAIMED en geclaimd door anna", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.status === "CLAIMED", "Gevonden status: " + response.body.status);
+        client.assert(response.body.claimedByUsername === "anna", "Geclaimd door: " + response.body.claimedByUsername);
+    });
+%}
+
+### STAP 9: Polymorfisme: de helper mag de hulpvraag oplossen
+# anna is niet de maker en geen admin. Ze mag toch oplossen, omdat HelpRequest
+# de methode canBeResolvedBy() uit Report overschrijft.
+POST http://localhost:8080/reports/{{dogId}}/resolve
+
+> {%
+    client.test("200 OK: de helper heeft de hulpvraag opgelost", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.status === "RESOLVED", "Gevonden status: " + response.body.status);
+    });
+%}
+
+### STAP 10: De helper mag de hulpvraag niet wijzigen
+# Oplossen is verruimd voor de helper, wijzigen niet: canBeManagedBy() blijft
+# voor elk report hetzelfde.
+PUT http://localhost:8080/reports/{{dogId}}
+Content-Type: application/json
+
+{
+  "title": "Walking the dog (done)",
+  "description": null,
+  "photo": null,
+  "latitude": 52.0727,
+  "longitude": 4.3015
+}
+
+> {%
+    client.test("403 Forbidden: de helper is niet de maker", function () {
+        client.assert(response.status === 403, "Verwachtte 403 Forbidden maar kreeg " + response.status);
+        client.assert(response.body.message === "You are not allowed to manage this report.", "Onverwachte melding: " + response.body.message);
+    });
+%}

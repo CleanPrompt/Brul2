@@ -3,6 +3,23 @@
 Alle relevante wijzigingen aan Brul vanaf versie 0.14 worden in dit
 bestand bijgehouden.
 
+## 0.18.2 - API-demo
+
+### Toegevoegd
+
+-   User flows voor de IntelliJ HTTP Client in `test/http-requests/`:
+    -   `1-search-and-filter-flow.http`: ophalen, zoeken en filteren,
+        plus een ongeldige filterwaarde (400) en een onbekend ID (404);
+    -   `2-report-lifecycle-flow.http`: de drie reporttypes aanmaken,
+        validatie (400), wijzigen, oplossen, opnieuw oplossen of
+        wijzigen na oplossen (409) en verwijderen (204);
+    -   `3-business-rules-flow.http`: de domeinregels op de demodata,
+        zoals rechten (403), claimen (409) en het oplossen van een
+        hulpvraag door de helper.
+-   Elke request controleert met `client.test` de verwachte statuscode
+    en melding.
+-   README beschrijft hoe je de server start en de flows uitvoert.
+
 ## 0.18.1 - Review
 
 ### Gewijzigd
@@ -14,8 +31,6 @@ bestand bijgehouden.
     `seedData`; alleen `module()` bepaalt die.
 -   De tabellen in `README.md` zijn omgezet naar GitHub-tabellen, zodat
     ze op GitHub correct worden weergegeven.
--   Project verplaatst van een OneDrive-map naar `IdeaProjects`, omdat
-    OneDrive de `build`-map vergrendelde tijdens het compileren.
 
 ### Teststatus
 

@@ -1,0 +1,202 @@
+# Brul - flow 2: de levenscyclus van een report
+#
+# Start eerst de server met: .\kotlin.bat run
+# Alle requests worden uitgevoerd als demogebruiker anna (user-1), zolang
+# authentication nog niet is geimplementeerd. Deze flow maakt eigen reports
+# aan en kan dus vaker worden uitgevoerd.
+
+### STAP 1: Veiligheidsmelding aanmaken
+POST http://localhost:8080/reports/safety
+Content-Type: application/json
+
+{
+  "title": "Broken bench in the park",
+  "description": "One of the planks is missing.",
+  "photo": null,
+  "latitude": 52.0710,
+  "longitude": 4.3005,
+  "urgency": "LOW"
+}
+
+> {%
+    client.test("201 Created: SafetyReport van anna met status OPEN", function () {
+        client.assert(response.status === 201, "Verwachtte 201 Created maar kreeg " + response.status);
+        client.assert(response.body.type === "SAFETY", "Gevonden type: " + response.body.type);
+        client.assert(response.body.status === "OPEN", "Gevonden status: " + response.body.status);
+        client.assert(response.body.urgency === "LOW", "Gevonden urgentie: " + response.body.urgency);
+        client.assert(response.body.createdByUsername === "anna", "Gemaakt door: " + response.body.createdByUsername);
+    });
+
+    client.global.set("lifecycleSafetyId", response.body.id);
+%}
+
+### STAP 2: Overlastmelding aanmaken
+POST http://localhost:8080/reports/nuisance
+Content-Type: application/json
+
+{
+  "title": "Shopping trolleys left on the sidewalk",
+  "description": "Three trolleys block the sidewalk near the bus stop.",
+  "photo": null,
+  "latitude": 52.0695,
+  "longitude": 4.3025,
+  "nuisanceType": "OTHER"
+}
+
+> {%
+    client.test("201 Created: NuisanceReport met overlasttype OTHER", function () {
+        client.assert(response.status === 201, "Verwachtte 201 Created maar kreeg " + response.status);
+        client.assert(response.body.type === "NUISANCE", "Gevonden type: " + response.body.type);
+        client.assert(response.body.nuisanceType === "OTHER", "Gevonden overlasttype: " + response.body.nuisanceType);
+    });
+
+    client.global.set("lifecycleNuisanceId", response.body.id);
+%}
+
+### STAP 3: Hulpvraag aanmaken
+POST http://localhost:8080/reports/help
+Content-Type: application/json
+
+{
+  "title": "Help moving a closet",
+  "description": "Who can help me carry a closet upstairs on Sunday?",
+  "photo": null,
+  "latitude": 52.0718,
+  "longitude": 4.3012
+}
+
+> {%
+    client.test("201 Created: HelpRequest met status OPEN en nog niet geclaimd", function () {
+        client.assert(response.status === 201, "Verwachtte 201 Created maar kreeg " + response.status);
+        client.assert(response.body.type === "HELP", "Gevonden type: " + response.body.type);
+        client.assert(response.body.status === "OPEN", "Gevonden status: " + response.body.status);
+        client.assert(response.body.claimedById === null || response.body.claimedById === undefined, "De hulpvraag is al geclaimd");
+    });
+%}
+
+### STAP 4: Validatie in het domein: een lege titel geeft 400 Bad Request
+POST http://localhost:8080/reports/safety
+Content-Type: application/json
+
+{
+  "title": "   ",
+  "description": null,
+  "photo": null,
+  "latitude": 52.0710,
+  "longitude": 4.3005,
+  "urgency": "LOW"
+}
+
+> {%
+    client.test("400 Bad Request: titel mag niet leeg zijn", function () {
+        client.assert(response.status === 400, "Verwachtte 400 Bad Request maar kreeg " + response.status);
+        client.assert(response.body.message === "Title must not be blank.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 5: Validatie in het domein: een ongeldige locatie geeft 400 Bad Request
+POST http://localhost:8080/reports/safety
+Content-Type: application/json
+
+{
+  "title": "Somewhere far away",
+  "description": null,
+  "photo": null,
+  "latitude": 100.0,
+  "longitude": 4.3005,
+  "urgency": "LOW"
+}
+
+> {%
+    client.test("400 Bad Request: latitude moet tussen -90 en 90 liggen", function () {
+        client.assert(response.status === 400, "Verwachtte 400 Bad Request maar kreeg " + response.status);
+        client.assert(response.body.message === "Latitude must be between -90 and 90.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 6: De nieuwe veiligheidsmelding ophalen op ID
+GET http://localhost:8080/reports/{{lifecycleSafetyId}}
+
+> {%
+    client.test("200 OK: het aangemaakte report wordt teruggegeven", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.title === "Broken bench in the park", "Gevonden titel: " + response.body.title);
+    });
+%}
+
+### STAP 7: Eigen report wijzigen
+PUT http://localhost:8080/reports/{{lifecycleSafetyId}}
+Content-Type: application/json
+
+{
+  "title": "Broken bench in the park (two planks missing)",
+  "description": "Now two planks are missing.",
+  "photo": null,
+  "latitude": 52.0711,
+  "longitude": 4.3006
+}
+
+> {%
+    client.test("200 OK: de maker mag zijn eigen report wijzigen", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.title === "Broken bench in the park (two planks missing)", "Gevonden titel: " + response.body.title);
+        client.assert(response.body.latitude === 52.0711, "Gevonden latitude: " + response.body.latitude);
+    });
+%}
+
+### STAP 8: Eigen report oplossen
+POST http://localhost:8080/reports/{{lifecycleSafetyId}}/resolve
+
+> {%
+    client.test("200 OK: status wordt RESOLVED", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.status === "RESOLVED", "Gevonden status: " + response.body.status);
+    });
+%}
+
+### STAP 9: Een opgelost report nogmaals oplossen geeft 409 Conflict
+POST http://localhost:8080/reports/{{lifecycleSafetyId}}/resolve
+
+> {%
+    client.test("409 Conflict: report is al opgelost", function () {
+        client.assert(response.status === 409, "Verwachtte 409 Conflict maar kreeg " + response.status);
+        client.assert(response.body.message === "Report is already resolved.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 10: Een opgelost report wijzigen geeft 409 Conflict
+PUT http://localhost:8080/reports/{{lifecycleSafetyId}}
+Content-Type: application/json
+
+{
+  "title": "Too late",
+  "description": null,
+  "photo": null,
+  "latitude": 52.0711,
+  "longitude": 4.3006
+}
+
+> {%
+    client.test("409 Conflict: een opgelost report kan niet meer gewijzigd worden", function () {
+        client.assert(response.status === 409, "Verwachtte 409 Conflict maar kreeg " + response.status);
+        client.assert(response.body.message === "A resolved report can no longer be changed.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 11: Eigen overlastmelding verwijderen
+DELETE http://localhost:8080/reports/{{lifecycleNuisanceId}}
+
+> {%
+    client.test("204 No Content: report verwijderd", function () {
+        client.assert(response.status === 204, "Verwachtte 204 No Content maar kreeg " + response.status);
+    });
+%}
+
+### STAP 12: Het verwijderde report bestaat niet meer
+GET http://localhost:8080/reports/{{lifecycleNuisanceId}}
+
+> {%
+    client.test("404 Not Found: het report is echt verwijderd", function () {
+        client.assert(response.status === 404, "Verwachtte 404 Not Found maar kreeg " + response.status);
+    });
+%}
