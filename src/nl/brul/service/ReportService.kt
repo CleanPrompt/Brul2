@@ -1,18 +1,27 @@
 package nl.brul.service
 
+import nl.brul.domain.Claimable
 import nl.brul.domain.HelpRequest
 import nl.brul.domain.Location
 import nl.brul.domain.NuisanceReport
 import nl.brul.domain.NuisanceType
 import nl.brul.domain.Report
+import nl.brul.domain.ReportFilter
 import nl.brul.domain.ReportStatus
 import nl.brul.domain.ReportType
-import nl.brul.domain.Role
 import nl.brul.domain.SafetyReport
 import nl.brul.domain.Urgency
 import nl.brul.domain.User
+import nl.brul.domain.filterBy
 import nl.brul.persistence.ReportRepository
 
+/**
+ * Use cases for reports.
+ *
+ * The service coordinates: it loads a report, lets the domain object apply
+ * its business rules, and stores the result. The rules themselves (who may
+ * change, resolve or claim a report, and in which status) live in the domain.
+ */
 class ReportService(
     private val reportRepository: ReportRepository
 ) {
@@ -25,40 +34,17 @@ class ReportService(
         nuisanceType: NuisanceType? = null
     ): List<Report> {
 
+        val criteria = ReportFilter(
+            search = search,
+            type = type,
+            status = status,
+            urgency = urgency,
+            nuisanceType = nuisanceType
+        )
+
         return reportRepository
             .findAll()
-            .asSequence()
-            .filter { report ->
-                matchesSearch(
-                    report = report,
-                    search = search
-                )
-            }
-            .filter { report ->
-                matchesType(
-                    report = report,
-                    type = type
-                )
-            }
-            .filter { report ->
-                status == null ||
-                        report.status == status
-            }
-            .filter { report ->
-                urgency == null ||
-                        (
-                                report is SafetyReport &&
-                                        report.urgency == urgency
-                                )
-            }
-            .filter { report ->
-                nuisanceType == null ||
-                        (
-                                report is NuisanceReport &&
-                                        report.nuisanceType == nuisanceType
-                                )
-            }
-            .toList()
+            .filterBy(criteria)
     }
 
     fun getReport(
@@ -146,16 +132,12 @@ class ReportService(
         val report =
             findReportOrThrow(reportId)
 
-        requireCanManageReport(
-            report = report,
-            currentUser = currentUser
-        )
-
         report.update(
             title = title,
             description = description,
             photo = photo,
-            location = location
+            location = location,
+            updatedBy = currentUser
         )
 
         return reportRepository.update(report)
@@ -170,10 +152,7 @@ class ReportService(
         val report =
             findReportOrThrow(reportId)
 
-        requireCanManageReport(
-            report = report,
-            currentUser = currentUser
-        )
+        report.checkCanBeManagedBy(currentUser)
 
         val deleted =
             reportRepository.deleteById(reportId)
@@ -186,31 +165,18 @@ class ReportService(
     fun claimHelpRequest(
         reportId: String,
         currentUser: User
-    ): HelpRequest {
+    ): Report {
 
         val report =
             findReportOrThrow(reportId)
 
-        if (report !is HelpRequest) {
+        if (report !is Claimable) {
             throw ConflictException(
                 "Only a HelpRequest can be claimed."
             )
         }
 
-        if (report.createdBy.id == currentUser.id) {
-            throw ConflictException(
-                "You cannot claim your own HelpRequest."
-            )
-        }
-
-        try {
-            report.claim(currentUser)
-        } catch (exception: IllegalStateException) {
-            throw ConflictException(
-                exception.message
-                    ?: "HelpRequest cannot be claimed."
-            )
-        }
+        report.claim(currentUser)
 
         reportRepository.update(report)
 
@@ -225,19 +191,7 @@ class ReportService(
         val report =
             findReportOrThrow(reportId)
 
-        requireCanManageReport(
-            report = report,
-            currentUser = currentUser
-        )
-
-        try {
-            report.resolve()
-        } catch (exception: IllegalStateException) {
-            throw ConflictException(
-                exception.message
-                    ?: "Report cannot be resolved."
-            )
-        }
+        report.resolve(resolvedBy = currentUser)
 
         reportRepository.update(report)
 
@@ -250,73 +204,5 @@ class ReportService(
 
         return reportRepository.findById(reportId)
             ?: throw ReportNotFoundException(reportId)
-    }
-
-    private fun requireCanManageReport(
-        report: Report,
-        currentUser: User
-    ) {
-
-        val isOwner =
-            report.createdBy.id == currentUser.id
-
-        val isAdmin =
-            currentUser.role == Role.ADMIN
-
-        if (!isOwner && !isAdmin) {
-            throw ForbiddenException(
-                "You are not allowed to manage this report."
-            )
-        }
-    }
-
-    private fun matchesSearch(
-        report: Report,
-        search: String?
-    ): Boolean {
-
-        if (search.isNullOrBlank()) {
-            return true
-        }
-
-        val searchTerm =
-            search.trim()
-
-        val titleMatches =
-            report.title.contains(
-                other = searchTerm,
-                ignoreCase = true
-            )
-
-        val descriptionMatches =
-            report.description?.contains(
-                other = searchTerm,
-                ignoreCase = true
-            ) ?: false
-
-        return titleMatches ||
-                descriptionMatches
-    }
-
-    private fun matchesType(
-        report: Report,
-        type: ReportType?
-    ): Boolean {
-
-        if (type == null) {
-            return true
-        }
-
-        return when (type) {
-
-            ReportType.SAFETY ->
-                report is SafetyReport
-
-            ReportType.NUISANCE ->
-                report is NuisanceReport
-
-            ReportType.HELP ->
-                report is HelpRequest
-        }
     }
 }

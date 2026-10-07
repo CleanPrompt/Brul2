@@ -6,12 +6,13 @@ voor Deel 1 van het project: een Web API gebouwd met Kotlin en Ktor.
 
 ## Huidige versie
 
-**v0.17 - Error Handling & Validation**
+**v0.18 - Domeinlogica**
 
 De backend ondersteunt momenteel het aanmaken, ophalen, zoeken,
 filteren, wijzigen, verwijderen, claimen en oplossen van reports.
-Centrale foutafhandeling en validatie zijn toegevoegd en de volledige
-testsuite bestaat momenteel uit **44 geslaagde tests**.
+In v0.18 zijn de businessregels naar het domeinmodel verplaatst, start
+de server met realistische demodata en bestaat de volledige testsuite
+uit **69 geslaagde tests**.
 
 ## Functionaliteit
 
@@ -24,6 +25,25 @@ Brul kent drie soorten reports:
 
 Reports hebben gedeelde eigenschappen zoals een titel, beschrijving,
 locatie, maker, aanmaakmoment en status.
+
+### Domeinregels
+
+De regels worden bewaakt door de domeinobjecten zelf:
+
+-   Een titel mag niet leeg zijn; een locatie moet geldige coördinaten
+    hebben.
+-   Alleen de maker van een report of een admin mag het report wijzigen
+    of verwijderen (`Report.canBeManagedBy`).
+-   Een opgelost report kan niet opnieuw opgelost of gewijzigd worden.
+-   Een `HelpRequest` kan alleen geclaimd worden als hij `OPEN` is, en
+    niet door de maker zelf.
+-   Wie een report mag oplossen is polymorf: standaard de maker of een
+    admin; bij een `HelpRequest` ook de helper die hem claimde
+    (`HelpRequest` overschrijft `canBeResolvedBy`).
+
+Zoeken en filteren gebeurt met `ReportFilter`: elk ingevuld criterium
+wordt een predicate `(Report) -> Boolean` en een report voldoet als het
+aan alle predicates voldoet.
 
 De API ondersteunt daarnaast:
 
@@ -76,12 +96,14 @@ nl.brul
 
 ### Verantwoordelijkheden
 
--   `domain` bevat het domeinmodel en bewaakt geldige objecttoestand en
-    statusovergangen.
+-   `domain` bevat het domeinmodel en bewaakt geldige objecttoestand,
+    statusovergangen en de regels over wie welke actie mag uitvoeren.
 -   `dto` bevat de request- en responsemodellen van de API.
 -   `routing` verwerkt HTTP-requests, queryparameters en responses.
--   `service` bevat use-cases, businessregels en autorisatieregels.
--   `persistence` abstraheert de opslag van reports.
+-   `service` bevat de use-cases: een report ophalen, het domein de
+    actie laten uitvoeren en het resultaat opslaan.
+-   `persistence` abstraheert de opslag van reports via een generieke
+    `CrudRepository<T, ID>` en bevat de demodata (`ReportSeedData`).
 -   `config` bevat Ktor-configuratie, waaronder serialisatie, static
     content en centrale error handling.
 
@@ -128,7 +150,9 @@ Queryparameters kunnen worden gecombineerd.
 ## Error handling en validatie
 
 Vanaf v0.17 gebruikt Brul Ktor `StatusPages` voor centrale
-foutafhandeling. API-fouten worden teruggestuurd als een uniforme
+foutafhandeling. Vanaf v0.18 komen `403 Forbidden` en de meeste
+`409 Conflict`-fouten rechtstreeks uit het domein
+(`NotAllowedException` en `IllegalStateException`). API-fouten worden teruggestuurd als een uniforme
 `ErrorResponse`.
 
 Voorbeeld:
@@ -172,9 +196,13 @@ De backend wordt getest met Kotlin Test en Ktor Test Host. Er zijn unit
 tests voor domein- en servicelogica en integration tests voor de
 HTTP-routes.
 
-De huidige teststatus van v0.17 is:
+De huidige teststatus van v0.18 is:
 
-**44 tests passed.**
+**69 tests passed.**
+
+De integration tests starten de applicatie met
+`module(seedData = false)`, zodat elke test met een lege repository
+begint.
 
 Tests uitvoeren:
 
@@ -200,16 +228,18 @@ Brul gebruikt momenteel:
 -   Ktor `StatusPages`;
 -   Kotlin Test;
 -   Ktor Test Host;
--   in-memory persistence via `ReportRepository`.
+-   in-memory persistence via `ReportRepository`, met demodata bij het
+    opstarten;
+-   `kotlin.time` en `kotlin.uuid` uit de Kotlin standard library.
 
 ## Huidige beperkingen
 
-De backend is nog in ontwikkeling. In v0.17 gelden onder andere de
+De backend is nog in ontwikkeling. In v0.18 gelden onder andere de
 volgende beperkingen:
 
 -   authentication is nog niet geïmplementeerd;
 -   routes gebruiken tijdelijk een vaste testgebruiker;
--   persistence is nog in-memory;
+-   persistence is nog in-memory (wel met realistische demodata);
 -   MariaDB is gepland voor een latere versie;
 -   de AI-component voor de opdracht is nog niet geïmplementeerd.
 

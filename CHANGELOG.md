@@ -3,6 +3,47 @@
 Alle relevante wijzigingen aan Brul vanaf versie 0.14 worden in dit
 bestand bijgehouden.
 
+## 0.18 - Domeinlogica
+
+### Toegevoegd
+
+-   `Report.type` als abstracte property: elk subtype geeft zelf zijn
+    `ReportType` op (polymorfisme in plaats van `is`-checks).
+-   `Report.canBeResolvedBy()` als open methode. `HelpRequest`
+    overschrijft deze zodat ook de helper die de hulpvraag claimde hem
+    mag oplossen.
+-   `Report.canBeManagedBy()` en `checkCanBeManagedBy()`: alleen de
+    maker of een admin mag een report wijzigen of verwijderen.
+-   `NotAllowedException` in het domein, vertaald naar `403 Forbidden`.
+-   `ReportFilter` in het domein: zoek- en filtercriteria als lijst van
+    predicates `(Report) -> Boolean`, met extension function
+    `filterBy()`.
+-   Generieke `CrudRepository<T, ID>` en `InMemoryRepository<T, ID>`;
+    `ReportRepository` en `InMemoryReportRepository` bouwen hierop.
+-   `ReportSeedData`: realistische demodata bij het opstarten van de
+    server (`module(seedData = true)` is de standaard).
+-   Logo toegevoegd aan de frontend.
+-   Domeintests voor wijzigen, oplossen, claimen, rechten en filteren.
+
+### Gewijzigd
+
+-   De regel "je kunt je eigen HelpRequest niet claimen" staat nu in
+    `HelpRequest.claim()` in plaats van in de service.
+-   Rechten voor wijzigen, verwijderen en oplossen worden door het
+    domein bewaakt; `ReportService` coördineert alleen nog.
+-   Een opgelost report kan niet meer gewijzigd worden
+    (`409 Conflict`).
+-   `java.time.LocalDateTime` en `java.util.UUID` vervangen door
+    `kotlin.time.Instant` en `kotlin.uuid.Uuid`. `createdAt` kan bij
+    het aanmaken worden meegegeven, wat tijdsafhankelijke tests
+    mogelijk maakt.
+-   Integration tests starten met `module(seedData = false)`.
+
+### Verwijderd
+
+-   `ForbiddenException` wordt niet meer gebruikt (vervangen door
+    `NotAllowedException` in het domein).
+
 ## 0.17
 
 ### Toegevoegd
