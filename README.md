@@ -6,7 +6,7 @@ voor Deel 1 van het project: een Web API gebouwd met Kotlin en Ktor.
 
 ## Huidige versie
 
-**v0.18 - Domeinlogica**
+**v0.18.1 - Domeinlogica**
 
 De backend ondersteunt momenteel het aanmaken, ophalen, zoeken,
 filteren, wijzigen, verwijderen, claimen en oplossen van reports.
@@ -111,17 +111,17 @@ nl.brul
 
 De huidige report-endpoints zijn:
 
-Methode    Endpoint                  Functie
-  ---------- ------------------------- -------------------------------------
-`GET`      `/reports`                Reports ophalen, zoeken en filteren
-`GET`      `/reports/{id}`           Eén report ophalen
-`POST`     `/reports/safety`         SafetyReport aanmaken
-`POST`     `/reports/nuisance`       NuisanceReport aanmaken
-`POST`     `/reports/help`           HelpRequest aanmaken
-`PUT`      `/reports/{id}`           Report wijzigen
-`DELETE`   `/reports/{id}`           Report verwijderen
-`POST`     `/reports/{id}/claim`     HelpRequest claimen
-`POST`     `/reports/{id}/resolve`   Report oplossen
+| Methode  | Endpoint                | Functie                             |
+|----------|-------------------------|-------------------------------------|
+| `GET`    | `/reports`              | Reports ophalen, zoeken en filteren |
+| `GET`    | `/reports/{id}`         | Eén report ophalen                  |
+| `POST`   | `/reports/safety`       | SafetyReport aanmaken               |
+| `POST`   | `/reports/nuisance`     | NuisanceReport aanmaken             |
+| `POST`   | `/reports/help`         | HelpRequest aanmaken                |
+| `PUT`    | `/reports/{id}`         | Report wijzigen                     |
+| `DELETE` | `/reports/{id}`         | Report verwijderen                  |
+| `POST`   | `/reports/{id}/claim`   | HelpRequest claimen                 |
+| `POST`   | `/reports/{id}/resolve` | Report oplossen                     |
 
 ### Search & Filter
 
@@ -152,8 +152,8 @@ Queryparameters kunnen worden gecombineerd.
 Vanaf v0.17 gebruikt Brul Ktor `StatusPages` voor centrale
 foutafhandeling. Vanaf v0.18 komen `403 Forbidden` en de meeste
 `409 Conflict`-fouten rechtstreeks uit het domein
-(`NotAllowedException` en `IllegalStateException`). API-fouten worden teruggestuurd als een uniforme
-`ErrorResponse`.
+(`NotAllowedException` en `IllegalStateException`). API-fouten worden
+teruggestuurd als een uniforme `ErrorResponse`.
 
 Voorbeeld:
 
@@ -167,25 +167,15 @@ Voorbeeld:
 
 De belangrijkste HTTP-statuscodes zijn:
 
-  -----------------------------------------------------------------------
-Status                              Betekenis
-  ----------------------------------- -----------------------------------
-`200 OK`                            Request succesvol
-
-`201 Created`                       Report succesvol aangemaakt
-
-`204 No Content`                    Report succesvol verwijderd
-
-`400 Bad Request`                   Ongeldige invoer of queryparameter
-
-`403 Forbidden`                     Gebruiker mag de actie niet
-uitvoeren
-
-`404 Not Found`                     Report bestaat niet
-
-`409 Conflict`                      Actie conflicteert met een
-businessregel of huidige status
-  -----------------------------------------------------------------------
+| Status            | Betekenis                                                  |
+|-------------------|------------------------------------------------------------|
+| `200 OK`          | Request succesvol                                          |
+| `201 Created`     | Report succesvol aangemaakt                                |
+| `204 No Content`  | Report succesvol verwijderd                                |
+| `400 Bad Request` | Ongeldige invoer of queryparameter                         |
+| `403 Forbidden`   | Gebruiker mag de actie niet uitvoeren                      |
+| `404 Not Found`   | Report bestaat niet                                        |
+| `409 Conflict`    | Actie conflicteert met een businessregel of huidige status |
 
 `401 Unauthorized` wordt relevant zodra echte authentication is
 geïmplementeerd.
@@ -196,7 +186,7 @@ De backend wordt getest met Kotlin Test en Ktor Test Host. Er zijn unit
 tests voor domein- en servicelogica en integration tests voor de
 HTTP-routes.
 
-De huidige teststatus van v0.18 is:
+De huidige teststatus van v0.18.1 is:
 
 **69 tests passed.**
 
@@ -238,7 +228,8 @@ De backend is nog in ontwikkeling. In v0.18 gelden onder andere de
 volgende beperkingen:
 
 -   authentication is nog niet geïmplementeerd;
--   routes gebruiken tijdelijk een vaste testgebruiker;
+-   routes gebruiken tijdelijk een vaste demogebruiker (`anna`,
+    `user-1`), die ook een deel van de demodata heeft aangemaakt;
 -   persistence is nog in-memory (wel met realistische demodata);
 -   MariaDB is gepland voor een latere versie;
 -   de AI-component voor de opdracht is nog niet geïmplementeerd.

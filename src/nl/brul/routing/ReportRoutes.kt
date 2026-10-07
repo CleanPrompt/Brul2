@@ -8,7 +8,6 @@ import nl.brul.domain.Location
 import nl.brul.domain.NuisanceType
 import nl.brul.domain.ReportStatus
 import nl.brul.domain.ReportType
-import nl.brul.domain.Role
 import nl.brul.domain.Urgency
 import nl.brul.domain.User
 import nl.brul.dto.request.CreateHelpRequestRequest
@@ -16,6 +15,7 @@ import nl.brul.dto.request.CreateNuisanceReportRequest
 import nl.brul.dto.request.CreateSafetyReportRequest
 import nl.brul.dto.request.UpdateReportRequest
 import nl.brul.dto.toResponse
+import nl.brul.persistence.ReportSeedData
 import nl.brul.service.ReportService
 
 fun Route.reportRoutes(
@@ -303,10 +303,11 @@ private inline fun <reified T : Enum<T>> parseEnumParameter(
         )
 }
 
+/**
+ * Until authentication is implemented, every request is made as demo user
+ * "anna" (user-1), who also owns some of the demo reports. The demo then shows
+ * both allowed actions (her own reports) and refused ones (other residents').
+ */
 private fun temporaryCurrentUser(): User {
-    return User(
-        id = "user-1",
-        username = "testuser",
-        role = Role.USER
-    )
+    return ReportSeedData.anna
 }

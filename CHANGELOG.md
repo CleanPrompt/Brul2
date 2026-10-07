@@ -3,6 +3,24 @@
 Alle relevante wijzigingen aan Brul vanaf versie 0.14 worden in dit
 bestand bijgehouden.
 
+## 0.18.1 - Review
+
+### Gewijzigd
+
+-   De tijdelijke gebruiker in de routes is nu demogebruiker `anna`
+    (`user-1`) uit `ReportSeedData`. Reports die via de API worden
+    aangemaakt en de demodata tonen daardoor dezelfde gebruiker.
+-   `configureRouting()` heeft geen eigen standaardwaarde meer voor
+    `seedData`; alleen `module()` bepaalt die.
+-   De tabellen in `README.md` zijn omgezet naar GitHub-tabellen, zodat
+    ze op GitHub correct worden weergegeven.
+-   Project verplaatst van een OneDrive-map naar `IdeaProjects`, omdat
+    OneDrive de `build`-map vergrendelde tijdens het compileren.
+
+### Teststatus
+
+-   **69 tests passed.**
+
 ## 0.18 - Domeinlogica
 
 ### Toegevoegd
@@ -38,11 +56,19 @@ bestand bijgehouden.
     het aanmaken worden meegegeven, wat tijdsafhankelijke tests
     mogelijk maakt.
 -   Integration tests starten met `module(seedData = false)`.
+-   `claimHelpRequest()` werkt via de `Claimable`-interface en
+    retourneert een `Report`.
 
 ### Verwijderd
 
--   `ForbiddenException` wordt niet meer gebruikt (vervangen door
-    `NotAllowedException` in het domein).
+-   `ForbiddenException`, vervangen door `NotAllowedException` in het
+    domein.
+
+### Teststatus
+
+-   Domeintests toegevoegd voor wijzigen, oplossen, claimen, rechten en
+    filteren; servicetests en integration tests uitgebreid.
+-   **69 tests passed.**
 
 ## 0.17
 

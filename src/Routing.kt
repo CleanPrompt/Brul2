@@ -7,7 +7,7 @@ import nl.brul.persistence.ReportSeedData
 import nl.brul.routing.reportRoutes
 import nl.brul.service.ReportService
 
-fun Application.configureRouting(seedData: Boolean = false) {
+fun Application.configureRouting(seedData: Boolean) {
 
     val initialReports =
         if (seedData) {
