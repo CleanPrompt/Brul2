@@ -4,14 +4,20 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import nl.brul.domain.HelpRequest
 import nl.brul.domain.Location
 import nl.brul.domain.NuisanceReport
+import nl.brul.domain.NotAllowedException
 import nl.brul.domain.NuisanceType
 import nl.brul.domain.ReportStatus
+import nl.brul.domain.ReportType
 import nl.brul.domain.Role
+import nl.brul.domain.SafetyReport
+import nl.brul.domain.Urgency
 import nl.brul.domain.User
 import nl.brul.persistence.InMemoryReportRepository
+import nl.brul.persistence.ReportSeedData
 
 class ReportServiceTest {
 
@@ -57,7 +63,7 @@ class ReportServiceTest {
         repository.save(helpRequest)
 
         val exception =
-            assertFailsWith<ConflictException> {
+            assertFailsWith<IllegalStateException> {
                 service.claimHelpRequest(
                     reportId = helpRequest.id,
                     currentUser = owner
@@ -110,7 +116,7 @@ class ReportServiceTest {
 
         assertEquals(
             otherUser,
-            result.claimedBy
+            (result as HelpRequest).claimedBy
         )
 
         assertEquals(
@@ -139,7 +145,7 @@ class ReportServiceTest {
         repository.save(report)
 
         val exception =
-            assertFailsWith<ForbiddenException> {
+            assertFailsWith<NotAllowedException> {
                 service.deleteReport(
                     reportId = report.id,
                     currentUser = otherUser
@@ -183,6 +189,99 @@ class ReportServiceTest {
 
         assertNull(
             repository.findById(report.id)
+        )
+    }
+
+    @Test
+    fun `claiming a safety report is a conflict`() {
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
+
+        val report = SafetyReport(
+            title = "Broken streetlight",
+            description = null,
+            photo = null,
+            location = location,
+            createdBy = owner,
+            urgency = Urgency.MEDIUM
+        )
+
+        repository.save(report)
+
+        assertFailsWith<ConflictException> {
+            service.claimHelpRequest(
+                reportId = report.id,
+                currentUser = otherUser
+            )
+        }
+    }
+
+    @Test
+    fun `helper can resolve claimed help request`() {
+        val repository =
+            InMemoryReportRepository()
+
+        val service =
+            ReportService(repository)
+
+        val helpRequest = HelpRequest(
+            title = "Need help",
+            description = null,
+            photo = null,
+            location = location,
+            createdBy = owner
+        )
+
+        repository.save(helpRequest)
+
+        service.claimHelpRequest(
+            reportId = helpRequest.id,
+            currentUser = otherUser
+        )
+
+        val result =
+            service.resolveReport(
+                reportId = helpRequest.id,
+                currentUser = otherUser
+            )
+
+        assertEquals(
+            ReportStatus.RESOLVED,
+            result.status
+        )
+    }
+
+    @Test
+    fun `unknown report is not found`() {
+        val service =
+            ReportService(InMemoryReportRepository())
+
+        assertFailsWith<ReportNotFoundException> {
+            service.getReport("does-not-exist")
+        }
+    }
+
+    @Test
+    fun `repository can start with seed data`() {
+        val repository =
+            InMemoryReportRepository(ReportSeedData.reports())
+
+        val service =
+            ReportService(repository)
+
+        val reports =
+            service.getReports()
+
+        assertTrue(
+            reports.size >= 3
+        )
+
+        assertEquals(
+            ReportType.entries.toSet(),
+            reports.map { report -> report.type }.toSet()
         )
     }
 }

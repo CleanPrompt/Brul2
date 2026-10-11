@@ -1,0 +1,120 @@
+# Brul - flow 1: reports ophalen, zoeken en filteren
+#
+# Start eerst de server met: .\kotlin.bat run
+# Deze flow verandert niets aan de data en kan dus vaker worden uitgevoerd.
+
+### STAP 1: Alle reports ophalen (de server start met demodata)
+GET http://localhost:8080/reports
+
+> {%
+    client.test("200 OK en de demodata bevat alle drie de reporttypes", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+
+        var types = {};
+        for (var i = 0; i < response.body.length; i++) {
+            types[response.body[i].type] = true;
+        }
+
+        client.assert(types.SAFETY === true, "Geen SafetyReport gevonden");
+        client.assert(types.NUISANCE === true, "Geen NuisanceReport gevonden");
+        client.assert(types.HELP === true, "Geen HelpRequest gevonden");
+    });
+
+    client.log("Aantal reports: " + response.body.length);
+%}
+
+### STAP 2: Zoeken in titel en beschrijving (hoofdletterongevoelig)
+GET http://localhost:8080/reports?search=STREETLIGHT
+
+> {%
+    client.test("Alleen reports met 'streetlight' in titel of beschrijving", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.length > 0, "Geen resultaten gevonden");
+
+        for (var i = 0; i < response.body.length; i++) {
+            var report = response.body[i];
+            var text = (report.title + " " + (report.description || "")).toLowerCase();
+
+            client.assert(text.indexOf("streetlight") !== -1, "Report zonder zoekterm: " + report.title);
+        }
+    });
+%}
+
+### STAP 3: Filteren op type (alleen hulpvragen)
+GET http://localhost:8080/reports?type=HELP
+
+> {%
+    client.test("Alleen reports van type HELP", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.length > 0, "Geen resultaten gevonden");
+
+        for (var i = 0; i < response.body.length; i++) {
+            client.assert(response.body[i].type === "HELP", "Gevonden type: " + response.body[i].type);
+        }
+    });
+%}
+
+### STAP 4: Filters combineren (veiligheidsmeldingen met hoge urgentie)
+GET http://localhost:8080/reports?type=SAFETY&urgency=HIGH
+
+> {%
+    client.test("Alleen SafetyReports met urgentie HIGH", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.length > 0, "Geen resultaten gevonden");
+
+        for (var i = 0; i < response.body.length; i++) {
+            client.assert(response.body[i].type === "SAFETY", "Gevonden type: " + response.body[i].type);
+            client.assert(response.body[i].urgency === "HIGH", "Gevonden urgentie: " + response.body[i].urgency);
+        }
+    });
+%}
+
+### STAP 5: Filteren op status (opgeloste reports)
+GET http://localhost:8080/reports?status=RESOLVED
+
+> {%
+    client.test("Alleen reports met status RESOLVED", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.length > 0, "Geen resultaten gevonden");
+
+        for (var i = 0; i < response.body.length; i++) {
+            client.assert(response.body[i].status === "RESOLVED", "Gevonden status: " + response.body[i].status);
+        }
+    });
+%}
+
+### STAP 6: Filteren op overlasttype (geluidsoverlast)
+GET http://localhost:8080/reports?nuisanceType=NOISE
+
+> {%
+    client.test("Alleen NuisanceReports van type NOISE", function () {
+        client.assert(response.status === 200, "Verwachtte 200 OK maar kreeg " + response.status);
+        client.assert(response.body.length > 0, "Geen resultaten gevonden");
+
+        for (var i = 0; i < response.body.length; i++) {
+            client.assert(response.body[i].type === "NUISANCE", "Gevonden type: " + response.body[i].type);
+            client.assert(response.body[i].nuisanceType === "NOISE", "Gevonden overlasttype: " + response.body[i].nuisanceType);
+        }
+    });
+%}
+
+### STAP 7: Ongeldige filterwaarde geeft 400 Bad Request
+GET http://localhost:8080/reports?type=BANANA
+
+> {%
+    client.test("400 Bad Request met een uniforme ErrorResponse", function () {
+        client.assert(response.status === 400, "Verwachtte 400 Bad Request maar kreeg " + response.status);
+        client.assert(response.body.status === 400, "ErrorResponse.status is niet 400");
+        client.assert(response.body.message === "Invalid value 'BANANA' for query parameter 'type'.", "Onverwachte melding: " + response.body.message);
+    });
+%}
+
+### STAP 8: Onbekend report geeft 404 Not Found
+GET http://localhost:8080/reports/does-not-exist
+
+> {%
+    client.test("404 Not Found met een uniforme ErrorResponse", function () {
+        client.assert(response.status === 404, "Verwachtte 404 Not Found maar kreeg " + response.status);
+        client.assert(response.body.message === "Report with id 'does-not-exist' was not found.", "Onverwachte melding: " + response.body.message);
+    });
+%}

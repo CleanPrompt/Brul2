@@ -4,9 +4,9 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
+import nl.brul.domain.NotAllowedException
 import nl.brul.dto.response.ErrorResponse
 import nl.brul.service.ConflictException
-import nl.brul.service.ForbiddenException
 import nl.brul.service.ReportNotFoundException
 
 fun Application.configureErrorHandling() {
@@ -35,7 +35,7 @@ fun Application.configureErrorHandling() {
             )
         }
 
-        exception<ForbiddenException> { call, cause ->
+        exception<NotAllowedException> { call, cause ->
             call.respond(
                 status = HttpStatusCode.Forbidden,
                 message = ErrorResponse(

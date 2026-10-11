@@ -1,20 +1,19 @@
 package nl.brul.dto
 
-import nl.brul.domain.HelpRequest
+import nl.brul.domain.Claimable
 import nl.brul.domain.NuisanceReport
 import nl.brul.domain.Report
-import nl.brul.domain.ReportType
 import nl.brul.domain.SafetyReport
 import nl.brul.dto.response.ReportResponse
 
 fun Report.toResponse(): ReportResponse {
+
+    val claimedBy =
+        (this as? Claimable)?.claimedBy
+
     return ReportResponse(
         id = id,
-        type = when (this) {
-            is SafetyReport -> ReportType.SAFETY
-            is NuisanceReport -> ReportType.NUISANCE
-            is HelpRequest -> ReportType.HELP
-        },
+        type = type,
         title = title,
         description = description,
         photo = photo,
@@ -24,25 +23,9 @@ fun Report.toResponse(): ReportResponse {
         createdByUsername = createdBy.username,
         createdAt = createdAt.toString(),
         status = status,
-        urgency = if (this is SafetyReport) {
-            urgency
-        } else {
-            null
-        },
-        nuisanceType = if (this is NuisanceReport) {
-            nuisanceType
-        } else {
-            null
-        },
-        claimedById = if (this is HelpRequest) {
-            claimedBy?.id
-        } else {
-            null
-        },
-        claimedByUsername = if (this is HelpRequest) {
-            claimedBy?.username
-        } else {
-            null
-        }
+        urgency = (this as? SafetyReport)?.urgency,
+        nuisanceType = (this as? NuisanceReport)?.nuisanceType,
+        claimedById = claimedBy?.id,
+        claimedByUsername = claimedBy?.username
     )
 }

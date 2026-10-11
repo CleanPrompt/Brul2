@@ -26,7 +26,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports returns OK`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -41,7 +41,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports returns empty list when no reports exist`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -66,7 +66,7 @@ class ReportRoutesTest {
     @Test
     fun `GET unknown report returns NotFound`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -81,7 +81,7 @@ class ReportRoutesTest {
     @Test
     fun `POST safety creates safety report`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -135,7 +135,7 @@ class ReportRoutesTest {
     @Test
     fun `POST safety then GET by id returns created report`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -197,7 +197,7 @@ class ReportRoutesTest {
     @Test
     fun `POST nuisance creates nuisance report`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -241,7 +241,7 @@ class ReportRoutesTest {
     @Test
     fun `POST help creates help request`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -284,7 +284,7 @@ class ReportRoutesTest {
     @Test
     fun `PUT report updates report`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -358,7 +358,7 @@ class ReportRoutesTest {
     @Test
     fun `PUT unknown report returns NotFound`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -388,7 +388,7 @@ class ReportRoutesTest {
     @Test
     fun `DELETE report removes report`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -436,7 +436,7 @@ class ReportRoutesTest {
     @Test
     fun `DELETE unknown report returns NotFound`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -453,7 +453,7 @@ class ReportRoutesTest {
     @Test
     fun `POST resolve changes report status to RESOLVED`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -505,7 +505,7 @@ class ReportRoutesTest {
     @Test
     fun `claiming own help request returns Conflict`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -543,7 +543,7 @@ class ReportRoutesTest {
     @Test
     fun `POST safety with blank title returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -574,7 +574,7 @@ class ReportRoutesTest {
     @Test
     fun `POST safety with invalid latitude returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -605,7 +605,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports searches title case insensitive`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -650,7 +650,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports searches description case insensitive`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -697,7 +697,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports filters by type`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -750,7 +750,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports filters type case insensitive`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -789,7 +789,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports filters by status`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -845,7 +845,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports filters by urgency`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -895,7 +895,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports filters by nuisance type`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -963,7 +963,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports combines filters`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -1024,7 +1024,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports with invalid type returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -1041,7 +1041,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports with invalid status returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -1058,7 +1058,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports with invalid urgency returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -1075,7 +1075,7 @@ class ReportRoutesTest {
     @Test
     fun `GET reports with invalid nuisance type returns BadRequest`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val response =
@@ -1092,7 +1092,7 @@ class ReportRoutesTest {
     @Test
     fun `resolving report twice returns Conflict`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -1129,7 +1129,7 @@ class ReportRoutesTest {
     @Test
     fun `claiming safety report returns Conflict`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -1156,7 +1156,7 @@ class ReportRoutesTest {
     @Test
     fun `invalid type returns ErrorResponse`() = testApplication {
         application {
-            module()
+            module(seedData = false)
         }
 
         val client =
@@ -1199,6 +1199,72 @@ class ReportRoutesTest {
             errorResponse.message.contains(
                 "BANANA"
             )
+        )
+    }
+
+    @Test
+    fun `PUT resolved report returns Conflict`() = testApplication {
+        application {
+            module(seedData = false)
+        }
+
+        val client =
+            createJsonClient()
+
+        val createdReport =
+            createSafetyReport(
+                client = client,
+                title = "Broken streetlight",
+                urgency = Urgency.MEDIUM
+            )
+
+        client.post(
+            "/reports/${createdReport.id}/resolve"
+        )
+
+        val updateResponse =
+            client.put(
+                "/reports/${createdReport.id}"
+            ) {
+                contentType(ContentType.Application.Json)
+
+                setBody(
+                    UpdateReportRequest(
+                        title = "Too late",
+                        description = null,
+                        photo = null,
+                        latitude = 52.08,
+                        longitude = 4.31
+                    )
+                )
+            }
+
+        assertEquals(
+            HttpStatusCode.Conflict,
+            updateResponse.status
+        )
+    }
+
+    @Test
+    fun `GET reports returns seed data when the server starts`() = testApplication {
+        application {
+            module()
+        }
+
+        val client =
+            createJsonClient()
+
+        val reports =
+            client.get("/reports")
+                .body<List<ReportResponse>>()
+
+        assertTrue(
+            reports.isNotEmpty()
+        )
+
+        assertEquals(
+            ReportType.entries.toSet(),
+            reports.map { report -> report.type }.toSet()
         )
     }
 

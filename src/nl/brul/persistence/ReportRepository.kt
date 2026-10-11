@@ -2,15 +2,10 @@ package nl.brul.persistence
 
 import nl.brul.domain.Report
 
-interface ReportRepository {
-
-    fun findAll(): List<Report>
-
-    fun findById(id: String): Report?
-
-    fun save(report: Report): Report
-
-    fun update(report: Report): Report?
-
-    fun deleteById(id: String): Boolean
-}
+/**
+ * Storage for reports. The rest of the application only depends on this
+ * interface, so the in-memory implementation can later be replaced by a
+ * database implementation (for example with Exposed) without changing the
+ * service or the routes.
+ */
+interface ReportRepository : CrudRepository<Report, String>

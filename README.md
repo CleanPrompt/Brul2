@@ -6,12 +6,13 @@ voor Deel 1 van het project: een Web API gebouwd met Kotlin en Ktor.
 
 ## Huidige versie
 
-**v0.17 - Error Handling & Validation**
+**v0.18.2 - Domeinlogica en API-demo**
 
 De backend ondersteunt momenteel het aanmaken, ophalen, zoeken,
 filteren, wijzigen, verwijderen, claimen en oplossen van reports.
-Centrale foutafhandeling en validatie zijn toegevoegd en de volledige
-testsuite bestaat momenteel uit **44 geslaagde tests**.
+In v0.18 zijn de businessregels naar het domeinmodel verplaatst, start
+de server met realistische demodata en bestaat de volledige testsuite
+uit **69 geslaagde tests**.
 
 ## Functionaliteit
 
@@ -24,6 +25,25 @@ Brul kent drie soorten reports:
 
 Reports hebben gedeelde eigenschappen zoals een titel, beschrijving,
 locatie, maker, aanmaakmoment en status.
+
+### Domeinregels
+
+De regels worden bewaakt door de domeinobjecten zelf:
+
+-   Een titel mag niet leeg zijn; een locatie moet geldige coördinaten
+    hebben.
+-   Alleen de maker van een report of een admin mag het report wijzigen
+    of verwijderen (`Report.canBeManagedBy`).
+-   Een opgelost report kan niet opnieuw opgelost of gewijzigd worden.
+-   Een `HelpRequest` kan alleen geclaimd worden als hij `OPEN` is, en
+    niet door de maker zelf.
+-   Wie een report mag oplossen is polymorf: standaard de maker of een
+    admin; bij een `HelpRequest` ook de helper die hem claimde
+    (`HelpRequest` overschrijft `canBeResolvedBy`).
+
+Zoeken en filteren gebeurt met `ReportFilter`: elk ingevuld criterium
+wordt een predicate `(Report) -> Boolean` en een report voldoet als het
+aan alle predicates voldoet.
 
 De API ondersteunt daarnaast:
 
@@ -76,12 +96,14 @@ nl.brul
 
 ### Verantwoordelijkheden
 
--   `domain` bevat het domeinmodel en bewaakt geldige objecttoestand en
-    statusovergangen.
+-   `domain` bevat het domeinmodel en bewaakt geldige objecttoestand,
+    statusovergangen en de regels over wie welke actie mag uitvoeren.
 -   `dto` bevat de request- en responsemodellen van de API.
 -   `routing` verwerkt HTTP-requests, queryparameters en responses.
--   `service` bevat use-cases, businessregels en autorisatieregels.
--   `persistence` abstraheert de opslag van reports.
+-   `service` bevat de use-cases: een report ophalen, het domein de
+    actie laten uitvoeren en het resultaat opslaan.
+-   `persistence` abstraheert de opslag van reports via een generieke
+    `CrudRepository<T, ID>` en bevat de demodata (`ReportSeedData`).
 -   `config` bevat Ktor-configuratie, waaronder serialisatie, static
     content en centrale error handling.
 
@@ -89,17 +111,17 @@ nl.brul
 
 De huidige report-endpoints zijn:
 
-Methode    Endpoint                  Functie
-  ---------- ------------------------- -------------------------------------
-`GET`      `/reports`                Reports ophalen, zoeken en filteren
-`GET`      `/reports/{id}`           Eén report ophalen
-`POST`     `/reports/safety`         SafetyReport aanmaken
-`POST`     `/reports/nuisance`       NuisanceReport aanmaken
-`POST`     `/reports/help`           HelpRequest aanmaken
-`PUT`      `/reports/{id}`           Report wijzigen
-`DELETE`   `/reports/{id}`           Report verwijderen
-`POST`     `/reports/{id}/claim`     HelpRequest claimen
-`POST`     `/reports/{id}/resolve`   Report oplossen
+| Methode  | Endpoint                | Functie                             |
+|----------|-------------------------|-------------------------------------|
+| `GET`    | `/reports`              | Reports ophalen, zoeken en filteren |
+| `GET`    | `/reports/{id}`         | Eén report ophalen                  |
+| `POST`   | `/reports/safety`       | SafetyReport aanmaken               |
+| `POST`   | `/reports/nuisance`     | NuisanceReport aanmaken             |
+| `POST`   | `/reports/help`         | HelpRequest aanmaken                |
+| `PUT`    | `/reports/{id}`         | Report wijzigen                     |
+| `DELETE` | `/reports/{id}`         | Report verwijderen                  |
+| `POST`   | `/reports/{id}/claim`   | HelpRequest claimen                 |
+| `POST`   | `/reports/{id}/resolve` | Report oplossen                     |
 
 ### Search & Filter
 
@@ -128,8 +150,10 @@ Queryparameters kunnen worden gecombineerd.
 ## Error handling en validatie
 
 Vanaf v0.17 gebruikt Brul Ktor `StatusPages` voor centrale
-foutafhandeling. API-fouten worden teruggestuurd als een uniforme
-`ErrorResponse`.
+foutafhandeling. Vanaf v0.18 komen `403 Forbidden` en de meeste
+`409 Conflict`-fouten rechtstreeks uit het domein
+(`NotAllowedException` en `IllegalStateException`). API-fouten worden
+teruggestuurd als een uniforme `ErrorResponse`.
 
 Voorbeeld:
 
@@ -143,25 +167,15 @@ Voorbeeld:
 
 De belangrijkste HTTP-statuscodes zijn:
 
-  -----------------------------------------------------------------------
-Status                              Betekenis
-  ----------------------------------- -----------------------------------
-`200 OK`                            Request succesvol
-
-`201 Created`                       Report succesvol aangemaakt
-
-`204 No Content`                    Report succesvol verwijderd
-
-`400 Bad Request`                   Ongeldige invoer of queryparameter
-
-`403 Forbidden`                     Gebruiker mag de actie niet
-uitvoeren
-
-`404 Not Found`                     Report bestaat niet
-
-`409 Conflict`                      Actie conflicteert met een
-businessregel of huidige status
-  -----------------------------------------------------------------------
+| Status            | Betekenis                                                  |
+|-------------------|------------------------------------------------------------|
+| `200 OK`          | Request succesvol                                          |
+| `201 Created`     | Report succesvol aangemaakt                                |
+| `204 No Content`  | Report succesvol verwijderd                                |
+| `400 Bad Request` | Ongeldige invoer of queryparameter                         |
+| `403 Forbidden`   | Gebruiker mag de actie niet uitvoeren                      |
+| `404 Not Found`   | Report bestaat niet                                        |
+| `409 Conflict`    | Actie conflicteert met een businessregel of huidige status |
 
 `401 Unauthorized` wordt relevant zodra echte authentication is
 geïmplementeerd.
@@ -172,9 +186,13 @@ De backend wordt getest met Kotlin Test en Ktor Test Host. Er zijn unit
 tests voor domein- en servicelogica en integration tests voor de
 HTTP-routes.
 
-De huidige teststatus van v0.17 is:
+De huidige teststatus van v0.18.1 is:
 
-**44 tests passed.**
+**69 tests passed.**
+
+De integration tests starten de applicatie met
+`module(seedData = false)`, zodat elke test met een lege repository
+begint.
 
 Tests uitvoeren:
 
@@ -188,6 +206,32 @@ Een specifieke testklasse uitvoeren kan bijvoorbeeld met:
 .\kotlin.bat test --include-classes="nl.brul.routing.ReportRoutesTest"
 ```
 
+## API-demo met HTTP-requests
+
+Start de server:
+
+``` powershell
+.\kotlin.bat run
+```
+
+De API draait dan op `http://localhost:8080` en start met demodata. Tot
+authentication is geïmplementeerd, worden alle requests uitgevoerd als
+demogebruiker `anna` (`user-1`).
+
+In `test/http-requests/` staan drie user flows voor de IntelliJ HTTP
+Client:
+
+| Bestand                         | Inhoud                                                                   |
+|---------------------------------|--------------------------------------------------------------------------|
+| `1-search-and-filter-flow.http` | Ophalen, zoeken en filteren; ongeldige filterwaarde en onbekend ID       |
+| `2-report-lifecycle-flow.http`  | Aanmaken, validatie, wijzigen, oplossen en verwijderen van eigen reports |
+| `3-business-rules-flow.http`    | Domeinregels op de demodata: rechten, claimen en oplossen door de helper |
+
+Open een bestand en kies **Run All Requests in File**. Elke request
+controleert de verwachte statuscode en melding. Flow 3 wijzigt de
+demodata; start de server opnieuw voordat je die flow nog een keer
+uitvoert.
+
 ## Techniek
 
 Brul gebruikt momenteel:
@@ -200,16 +244,19 @@ Brul gebruikt momenteel:
 -   Ktor `StatusPages`;
 -   Kotlin Test;
 -   Ktor Test Host;
--   in-memory persistence via `ReportRepository`.
+-   in-memory persistence via `ReportRepository`, met demodata bij het
+    opstarten;
+-   `kotlin.time` en `kotlin.uuid` uit de Kotlin standard library.
 
 ## Huidige beperkingen
 
-De backend is nog in ontwikkeling. In v0.17 gelden onder andere de
+De backend is nog in ontwikkeling. In v0.18 gelden onder andere de
 volgende beperkingen:
 
 -   authentication is nog niet geïmplementeerd;
--   routes gebruiken tijdelijk een vaste testgebruiker;
--   persistence is nog in-memory;
+-   routes gebruiken tijdelijk een vaste demogebruiker (`anna`,
+    `user-1`), die ook een deel van de demodata heeft aangemaakt;
+-   persistence is nog in-memory (wel met realistische demodata);
 -   MariaDB is gepland voor een latere versie;
 -   de AI-component voor de opdracht is nog niet geïmplementeerd.
 

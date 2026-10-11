@@ -3,6 +3,88 @@
 Alle relevante wijzigingen aan Brul vanaf versie 0.14 worden in dit
 bestand bijgehouden.
 
+## 0.18.2 - API-demo
+
+### Toegevoegd
+
+-   User flows voor de IntelliJ HTTP Client in `test/http-requests/`:
+    -   `1-search-and-filter-flow.http`: ophalen, zoeken en filteren,
+        plus een ongeldige filterwaarde (400) en een onbekend ID (404);
+    -   `2-report-lifecycle-flow.http`: de drie reporttypes aanmaken,
+        validatie (400), wijzigen, oplossen, opnieuw oplossen of
+        wijzigen na oplossen (409) en verwijderen (204);
+    -   `3-business-rules-flow.http`: de domeinregels op de demodata,
+        zoals rechten (403), claimen (409) en het oplossen van een
+        hulpvraag door de helper.
+-   Elke request controleert met `client.test` de verwachte statuscode
+    en melding.
+-   README beschrijft hoe je de server start en de flows uitvoert.
+
+## 0.18.1 - Review
+
+### Gewijzigd
+
+-   De tijdelijke gebruiker in de routes is nu demogebruiker `anna`
+    (`user-1`) uit `ReportSeedData`. Reports die via de API worden
+    aangemaakt en de demodata tonen daardoor dezelfde gebruiker.
+-   `configureRouting()` heeft geen eigen standaardwaarde meer voor
+    `seedData`; alleen `module()` bepaalt die.
+-   De tabellen in `README.md` zijn omgezet naar GitHub-tabellen, zodat
+    ze op GitHub correct worden weergegeven.
+
+### Teststatus
+
+-   **69 tests passed.**
+
+## 0.18 - Domeinlogica
+
+### Toegevoegd
+
+-   `Report.type` als abstracte property: elk subtype geeft zelf zijn
+    `ReportType` op (polymorfisme in plaats van `is`-checks).
+-   `Report.canBeResolvedBy()` als open methode. `HelpRequest`
+    overschrijft deze zodat ook de helper die de hulpvraag claimde hem
+    mag oplossen.
+-   `Report.canBeManagedBy()` en `checkCanBeManagedBy()`: alleen de
+    maker of een admin mag een report wijzigen of verwijderen.
+-   `NotAllowedException` in het domein, vertaald naar `403 Forbidden`.
+-   `ReportFilter` in het domein: zoek- en filtercriteria als lijst van
+    predicates `(Report) -> Boolean`, met extension function
+    `filterBy()`.
+-   Generieke `CrudRepository<T, ID>` en `InMemoryRepository<T, ID>`;
+    `ReportRepository` en `InMemoryReportRepository` bouwen hierop.
+-   `ReportSeedData`: realistische demodata bij het opstarten van de
+    server (`module(seedData = true)` is de standaard).
+-   Logo toegevoegd aan de frontend.
+-   Domeintests voor wijzigen, oplossen, claimen, rechten en filteren.
+
+### Gewijzigd
+
+-   De regel "je kunt je eigen HelpRequest niet claimen" staat nu in
+    `HelpRequest.claim()` in plaats van in de service.
+-   Rechten voor wijzigen, verwijderen en oplossen worden door het
+    domein bewaakt; `ReportService` coördineert alleen nog.
+-   Een opgelost report kan niet meer gewijzigd worden
+    (`409 Conflict`).
+-   `java.time.LocalDateTime` en `java.util.UUID` vervangen door
+    `kotlin.time.Instant` en `kotlin.uuid.Uuid`. `createdAt` kan bij
+    het aanmaken worden meegegeven, wat tijdsafhankelijke tests
+    mogelijk maakt.
+-   Integration tests starten met `module(seedData = false)`.
+-   `claimHelpRequest()` werkt via de `Claimable`-interface en
+    retourneert een `Report`.
+
+### Verwijderd
+
+-   `ForbiddenException`, vervangen door `NotAllowedException` in het
+    domein.
+
+### Teststatus
+
+-   Domeintests toegevoegd voor wijzigen, oplossen, claimen, rechten en
+    filteren; servicetests en integration tests uitgebreid.
+-   **69 tests passed.**
+
 ## 0.17
 
 ### Toegevoegd
