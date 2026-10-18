@@ -1,0 +1,28 @@
+// src/nl/brul/api/features/report/model/Report.kt
+package nl.brul.api.features.report.model
+
+abstract class Report(
+    val id: Long,
+    val title: String,
+    val description: String,
+    val location: Location,
+    val status: ReportStatus = ReportStatus.OPEN
+) {
+    init {
+        require(id > 0) {
+            "Report ID must be positive."
+        }
+
+        require(title.isNotBlank()) {
+            "Report title cannot be blank."
+        }
+
+        require(description.isNotBlank()) {
+            "Report description cannot be blank."
+        }
+    }
+
+    abstract val type: ReportType
+
+    abstract fun summary(): String
+}
