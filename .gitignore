@@ -1,0 +1,17 @@
+# Build output
+build/
+out/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Kotlin / JVM
+*.class
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

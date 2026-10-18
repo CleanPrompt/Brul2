@@ -1,6 +1,13 @@
+# resources/application.yaml
+
 ktor:
+  deployment:
+    host: 0.0.0.0
+    port: 8080
+
   application:
     modules:
-      - org.jetbrains.amper.ktor.ApplicationKt.module
-  deployment:
-    port: 8080
+      - nl.brul.api.ApplicationKt.module
+
+brul:
+  name: brul-api

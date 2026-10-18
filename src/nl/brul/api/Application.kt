@@ -1,4 +1,5 @@
-package org.jetbrains.amper.ktor
+// src/nl/brul/api/Application.kt
+package nl.brul.api
 
 import io.ktor.server.application.*
 
