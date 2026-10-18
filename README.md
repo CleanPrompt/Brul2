@@ -7,13 +7,24 @@ Brul2 is a REST API built with Kotlin, Ktor, and JetBrains Amper.
 ```text
 Brul2/
 ├── README.md
+├── ROADMAP.md
 ├── module.yaml
 ├── resources/
 │   └── application.yaml
-└── src/
+├── src/
+│   └── nl/brul/api/
+│       ├── Application.kt
+│       ├── Routing.kt
+│       ├── config/
+│       │   └── AppConfig.kt
+│       └── common/
+│           └── error/
+│               ├── ApiError.kt
+│               └── ErrorHandling.kt
+└── test/
     └── nl/brul/api/
-        ├── Application.kt
-        └── Routing.kt
+        ├── HealthRoutesTest.kt
+        └── ErrorHandlingTest.kt
 ```
 
 ## Technologies
@@ -24,4 +35,6 @@ Brul2/
 
 ## Project Status
 
-Step 1: Setting up the project structure and Ktor server.
+- [x] Checkpoint 1 — Ktor Server & Routing
+- [x] Checkpoint 2 — JSON, Configuration & Error Handling
+- [ ] Checkpoint 3 — Report Domain Models
