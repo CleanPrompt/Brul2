@@ -1,0 +1,804 @@
+# Checkpoint 4 — Database & Repositories
+
+## Overview
+
+In Checkpoint 4, I added database persistence to Brul2.
+
+Brul2 is a neighborhood reporting REST API built with Kotlin, Ktor, and JetBrains Amper. The application supports three types of neighborhood submissions: safety reports, nuisance reports, and requests for help.
+
+In Checkpoint 3, I created the domain models for these three report types. However, the reports only existed as Kotlin objects. They were not stored anywhere.
+
+The goal of Checkpoint 4 was to connect these domain models to a database so that reports could be created, retrieved, updated, and deleted.
+
+I used **H2** as the database and **JetBrains Exposed** as the SQL framework.
+
+I also introduced the **Repository Pattern** to keep database operations separate from the domain models and future REST endpoints.
+
+**Status:** Completed
+**Tests:** 16 passed (3 existing Ktor integration tests, 8 domain unit tests, and 5 new repository integration tests)
+
+## Learning Goals
+
+During this checkpoint, I wanted to learn how to:
+
+- Connect a Kotlin application to a relational database.
+- Use H2 for local database storage.
+- Use JetBrains Exposed to define SQL tables and execute database operations.
+- Understand the difference between domain models and database tables.
+- Apply the Repository Pattern.
+- Use a Kotlin interface to separate an abstraction from its implementation.
+- Implement CRUD operations.
+- Handle database-generated IDs.
+- Convert database rows back into the correct domain subclasses.
+- Use database transactions.
+- Write integration tests against a real database.
+- Keep test data separate from development data.
+
+## 1. Database Dependencies
+
+Brul2 uses JetBrains Amper instead of a traditional Gradle build file.
+
+I added the database dependencies to `module.yaml`.
+
+```yaml
+# module.yaml
+
+dependencies:
+  # Existing Ktor dependencies are retained.
+
+  # SQL database and Kotlin database access.
+  - com.h2database:h2:2.3.232
+  - org.jetbrains.exposed:exposed-core:0.61.0
+  - org.jetbrains.exposed:exposed-jdbc:0.61.0
+```
+
+### Why H2?
+
+H2 is a lightweight relational database that works well with JVM applications.
+
+I chose it because:
+
+- It does not require a separate database server.
+- It supports SQL and JDBC.
+- It can store data in a local file.
+- It supports in-memory databases for automated tests.
+- It is suitable for learning relational persistence.
+
+### Why Exposed?
+
+Exposed is a Kotlin SQL framework developed by JetBrains.
+
+Instead of writing JDBC connection and result-processing code manually, I can use Exposed to define tables and perform SQL operations through Kotlin.
+
+This also follows the project goal of using existing libraries rather than implementing database infrastructure myself.
+
+## 2. Database Configuration
+
+I added the database connection settings to the existing application configuration.
+
+```yaml
+# resources/application.yaml
+
+database:
+  url: "jdbc:h2:file:./data/brul;DB_CLOSE_ON_EXIT=FALSE"
+  driver: "org.h2.Driver"
+  user: "sa"
+  password: ""
+```
+
+### File-Based Storage
+
+The JDBC URL tells H2 to store the database in the local `data` directory.
+
+This is different from an in-memory database.
+
+With file-based storage, reports can remain available after the application is stopped and restarted.
+
+The database configuration is kept outside the repository classes so that the connection settings can be changed without rewriting the database logic.
+
+### Git Ignore
+
+I also added the database directory to `.gitignore`.
+
+```gitignore
+data/
+```
+
+The database files are local runtime data and should not be committed to the Git repository.
+
+## 3. DatabaseFactory
+
+I created a `DatabaseFactory` in the database package.
+
+```text
+src/nl/brul/api/database/
+└── DatabaseFactory.kt
+```
+
+The responsibility of this class is to initialize the database when the Ktor application starts.
+
+It reads the database settings from `application.yaml`, creates the connection using Exposed, and creates the required table if it does not already exist.
+
+The main operations are:
+
+```kotlin
+Database.connect(
+    url = url,
+    driver = driver,
+    user = user,
+    password = password
+)
+
+transaction(database) {
+    SchemaUtils.create(ReportsTable)
+}
+```
+
+### Why a DatabaseFactory?
+
+Without a dedicated database initialization component, connection logic could become scattered throughout the application.
+
+By using `DatabaseFactory`, the database setup has one clear responsibility.
+
+The repository classes can then focus on reading and writing data.
+
+### Application Startup
+
+I connected database initialization to the existing Ktor application module.
+
+The application now initializes its database before configuring the API routes.
+
+This means the reports table is available when the application starts handling requests.
+
+## 4. ReportsTable
+
+I created a database table definition using Exposed.
+
+```text
+src/nl/brul/api/features/report/repository/
+└── ReportsTable.kt
+```
+
+The table stores all three report types.
+
+```kotlin
+object ReportsTable : Table("reports") {
+    val id = long("id").autoIncrement()
+    val type = varchar("type", 30)
+    val title = varchar("title", 120)
+    val description = text("description")
+    val latitude = double("latitude")
+    val longitude = double("longitude")
+    val status = varchar("status", 30)
+    val urgent = bool("urgent").nullable()
+    val category = varchar("category", 100).nullable()
+    val volunteersNeeded = integer("volunteers_needed").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+```
+
+### Shared Columns
+
+Every report has the following shared information:
+
+- ID
+- Type
+- Title
+- Description
+- Latitude
+- Longitude
+- Status
+
+These fields correspond to the properties in the abstract `Report` class.
+
+### Type-Specific Columns
+
+The three subclasses also contain different properties.
+
+| Report type | Specific property | Database column |
+|---|---|---|
+| `SafetyReport` | `urgent: Boolean` | `urgent` |
+| `NuisanceReport` | `category: String` | `category` |
+| `HelpRequest` | `volunteersNeeded: Int` | `volunteers_needed` |
+
+These columns are nullable because not every property applies to every report type.
+
+For example, a safety report does not need a volunteer count.
+
+### Why One Table?
+
+I chose to store the three report types in one table because they share most of their properties.
+
+The `type` column identifies which subclass each row represents.
+
+This keeps the initial database design relatively simple while preserving the object-oriented domain model.
+
+A database row is not itself a `SafetyReport`, `NuisanceReport`, or `HelpRequest`. The repository is responsible for reconstructing the correct Kotlin object.
+
+## 5. Handling Database-Generated IDs
+
+In Checkpoint 3, the abstract `Report` class required a positive ID.
+
+```kotlin
+require(id > 0) {
+    "Report ID must be positive."
+}
+```
+
+This creates an important design question.
+
+When a user creates a new report, the report does not yet have a database ID.
+
+The database should generate that ID when the report is inserted.
+
+I solved this by introducing a separate `NewReport` data class.
+
+```text
+src/nl/brul/api/features/report/repository/
+└── NewReport.kt
+```
+
+```kotlin
+data class NewReport(
+    val type: ReportType,
+    val title: String,
+    val description: String,
+    val location: Location,
+    val urgent: Boolean? = null,
+    val category: String? = null,
+    val volunteersNeeded: Int? = null
+)
+```
+
+The actual implementation also contains validation rules.
+
+### Why NewReport?
+
+`NewReport` represents the information needed to create a report.
+
+It does not contain an ID because the database generates one.
+
+The process is:
+
+1. Create a `NewReport` object.
+2. Pass it to the repository.
+3. Insert the data into the database.
+4. Retrieve the generated ID.
+5. Return the corresponding `Report` subclass with that ID.
+
+This allows the existing domain models to keep their positive-ID validation.
+
+## 6. NewReport Validation
+
+The `NewReport` class validates both shared fields and report-specific fields.
+
+For example:
+
+```kotlin
+require(title.isNotBlank()) {
+    "Report title cannot be blank."
+}
+
+require(description.isNotBlank()) {
+    "Report description cannot be blank."
+}
+```
+
+It also checks that the supplied properties match the selected report type.
+
+### Safety Reports
+
+A safety report must provide an `urgent` value.
+
+It must not contain nuisance-specific or help-specific fields.
+
+### Nuisance Reports
+
+A nuisance report must provide a nonblank category.
+
+It must not contain safety-specific or help-specific fields.
+
+### Help Requests
+
+A help request must provide a positive `volunteersNeeded` value.
+
+It must not contain safety-specific or nuisance-specific fields.
+
+The validation uses a Kotlin `when` expression:
+
+```kotlin
+when (type) {
+    ReportType.SAFETY -> {
+        require(urgent != null) {
+            "Safety reports require an urgent value."
+        }
+    }
+
+    ReportType.NUISANCE -> {
+        require(!category.isNullOrBlank()) {
+            "Nuisance reports require a category."
+        }
+    }
+
+    ReportType.HELP_REQUEST -> {
+        require(volunteersNeeded != null && volunteersNeeded > 0) {
+            "Help requests require at least one volunteer."
+        }
+    }
+}
+```
+
+The complete implementation also rejects fields that belong to another report type.
+
+### Why Validate Before Inserting?
+
+This prevents invalid combinations of report properties from being sent to the database.
+
+It also keeps these rules independent of HTTP requests, since the REST API has not been implemented yet.
+
+## 7. Repository Interface
+
+I created the `ReportRepository` interface.
+
+```text
+src/nl/brul/api/features/report/repository/
+└── ReportRepository.kt
+```
+
+```kotlin
+interface ReportRepository {
+    fun create(report: NewReport): Report
+
+    fun findAll(): List<Report>
+
+    fun findById(id: Long): Report?
+
+    fun update(report: Report): Boolean
+
+    fun delete(id: Long): Boolean
+}
+```
+
+### Why an Interface?
+
+The interface defines which operations the application can perform without specifying how the data is stored.
+
+For example, a future `ReportService` can depend on `ReportRepository` rather than directly depending on Exposed.
+
+This separates the database implementation from the rest of the application.
+
+It also makes the application easier to test, because the repository interface could later be replaced with a test implementation.
+
+### CRUD Operations
+
+| Operation | Repository method | Purpose |
+|---|---|---|
+| Create | `create()` | Save a new report |
+| Read all | `findAll()` | Retrieve all reports |
+| Read one | `findById()` | Retrieve a report by ID |
+| Update | `update()` | Modify an existing report |
+| Delete | `delete()` | Remove a report |
+
+These operations form the persistence foundation for the future REST API.
+
+## 8. ExposedReportRepository
+
+I implemented the repository interface using Exposed.
+
+```text
+src/nl/brul/api/features/report/repository/
+└── ExposedReportRepository.kt
+```
+
+The class receives an Exposed `Database` object.
+
+```kotlin
+class ExposedReportRepository(
+    private val database: Database
+) : ReportRepository
+```
+
+This allows the repository to use a specific database connection.
+
+It is particularly useful in tests, where each test can use a separate in-memory database.
+
+### Database Transactions
+
+The repository operations run inside Exposed transactions.
+
+For example:
+
+```kotlin
+transaction(database) {
+    // Database operations
+}
+```
+
+Transactions provide a controlled context for database operations.
+
+If an operation fails, the transaction can be rolled back rather than leaving partially completed changes.
+
+## 9. Creating Reports
+
+The `create()` method accepts a `NewReport`.
+
+It inserts the shared fields into `ReportsTable` and stores the relevant subtype-specific values.
+
+The database generates the report ID automatically.
+
+After inserting the row, the repository retrieves the stored report and returns the correct domain subclass.
+
+For example:
+
+```kotlin
+val savedReport = repository.create(
+    NewReport(
+        type = ReportType.SAFETY,
+        title = "Unsafe crossing",
+        description = "Cars are speeding near the school.",
+        location = Location(52.08, 4.31),
+        urgent = true
+    )
+)
+```
+
+The returned object is a `Report`, but its actual runtime type is `SafetyReport`.
+
+Its ID comes from the database.
+
+### Why Return the Saved Report?
+
+Returning the saved domain object gives the caller access to the generated ID and the stored values.
+
+It also means callers do not need to understand how Exposed performs the insert.
+
+## 10. Reading Reports
+
+The repository supports retrieving all reports or one report by ID.
+
+### Find All
+
+```kotlin
+fun findAll(): List<Report>
+```
+
+The implementation reads rows from `ReportsTable`, orders them by ID, and converts each row into a domain object.
+
+### Find by ID
+
+```kotlin
+fun findById(id: Long): Report?
+```
+
+The method returns the matching report or `null` when no report exists with that ID.
+
+### Converting Rows into Domain Objects
+
+One important part of the implementation is converting Exposed `ResultRow` objects back into the correct report subclasses.
+
+The repository reads the stored `type` value and uses a Kotlin `when` expression to determine which class to create.
+
+Conceptually:
+
+```kotlin
+when (type) {
+    ReportType.SAFETY -> SafetyReport(...)
+    ReportType.NUISANCE -> NuisanceReport(...)
+    ReportType.HELP_REQUEST -> HelpRequest(...)
+}
+```
+
+This is necessary because the database uses one table, while the domain model uses inheritance.
+
+It also preserves polymorphism after the data has been loaded from the database.
+
+For example, a safety report is returned as a `SafetyReport`, not as a generic object containing unrelated nullable fields.
+
+## 11. Updating Reports
+
+The repository implements:
+
+```kotlin
+fun update(report: Report): Boolean
+```
+
+The method updates the database row that matches the report ID.
+
+It saves the shared properties, including the title, description, location, and status.
+
+It also handles the fields that belong to the concrete report subclass.
+
+The return value indicates whether an existing row was updated.
+
+### Current Design Limitation
+
+The current repository accepts a complete `Report` object.
+
+This means it does not yet explicitly prevent a caller from supplying a different report subclass with an existing ID.
+
+For example, the repository should eventually prevent an existing safety report from being changed into a help request simply by updating the row.
+
+I identified this as an improvement for the next refactoring checkpoint.
+
+The current implementation is sufficient to demonstrate database updates, but this rule should be enforced before building the complete REST API.
+
+## 12. Deleting Reports
+
+The repository implements:
+
+```kotlin
+fun delete(id: Long): Boolean
+```
+
+This method deletes the report with the given ID.
+
+It returns `true` if a row was deleted and `false` if the report did not exist.
+
+This provides a simple result that the future service layer can use when deciding how to respond to an API request.
+
+For example, a service could later convert a missing report into an HTTP 404 response.
+
+The repository itself does not need to know about HTTP status codes.
+
+## 13. Repository Integration Tests
+
+After implementing the database layer, I created a dedicated test file.
+
+```text
+test/nl/brul/api/features/report/repository/
+└── ExposedReportRepositoryTest.kt
+```
+
+These are integration tests because they exercise the repository against a real H2 database.
+
+They do not start a Ktor HTTP server.
+
+### Isolated In-Memory Databases
+
+Each test creates its own H2 in-memory database and initializes the reports table.
+
+This prevents tests from changing the development database or interfering with one another.
+
+It also makes the tests repeatable.
+
+### Tests Implemented
+
+| Test | Purpose |
+|---|---|
+| Create safety report | Verify insertion and database-generated ID |
+| Create all three report types | Verify that each subtype can be stored and reconstructed |
+| Update safety report | Verify that changes to the title and status are saved |
+| Delete nuisance report | Verify that an existing report can be removed |
+| Find missing report | Verify that looking up a nonexistent ID returns `null` |
+
+### Testing Database-Generated IDs
+
+The creation test verifies that a newly stored report receives a valid ID.
+
+This is important because `NewReport` does not provide an ID itself.
+
+### Testing Inheritance and Persistence Together
+
+The test for all three report types verifies more than simple database insertion.
+
+It also checks that the repository reconstructs the correct domain subclasses after reading the stored rows.
+
+This confirms that the relational database representation works with the object-oriented domain model.
+
+### Testing Updates
+
+The update test changes an existing safety report's title and status.
+
+It then reads the report again to verify that the new values were persisted.
+
+### Testing Deletion
+
+The deletion test removes a nuisance report and verifies that it can no longer be retrieved.
+
+### Testing Missing Data
+
+The missing-ID test checks that `findById()` returns `null` when no matching row exists.
+
+This is an important error case for the future service and API layers.
+
+## 14. Test Results
+
+After completing the database implementation, I ran the full test suite.
+
+All tests passed.
+
+| Test category | Passed |
+|---|---:|
+| Existing Ktor integration tests | 3 |
+| Domain model unit tests | 8 |
+| New repository integration tests | 5 |
+| **Total** | **16** |
+
+The five new tests confirmed that the repository can create, read, update, and delete reports using H2.
+
+The existing tests also continued to pass, showing that adding the database layer did not break the earlier Ktor configuration or domain model behavior.
+
+## 15. Architecture After Checkpoint 4
+
+At this point, Brul2 has the following layers:
+
+```text
+Brul2
+│
+├── Ktor Application
+│   ├── Application.kt
+│   ├── Routing.kt
+│   └── Configuration
+│
+├── Report Domain Models
+│   ├── Report
+│   ├── SafetyReport
+│   ├── NuisanceReport
+│   ├── HelpRequest
+│   ├── Location
+│   ├── ReportStatus
+│   └── ReportType
+│
+├── Report Persistence
+│   ├── NewReport
+│   ├── ReportRepository
+│   ├── ExposedReportRepository
+│   └── ReportsTable
+│
+└── Database Initialization
+    └── DatabaseFactory
+```
+
+The planned architecture is:
+
+```text
+HTTP Request
+     |
+     v
+Ktor Route
+     |
+     v
+ReportService
+     |
+     v
+ReportRepository (interface)
+     |
+     v
+ExposedReportRepository
+     |
+     v
+H2 Database
+```
+
+The service layer and report REST routes have not been implemented yet.
+
+Checkpoint 4 establishes the repository and database portions of this architecture.
+
+## 16. Object-Oriented and Functional Programming Concepts
+
+Although this checkpoint mainly focused on databases, it also reinforced several Kotlin programming concepts.
+
+### Abstraction
+
+`ReportRepository` is an interface that defines persistence operations without exposing their implementation.
+
+### Interface Implementation
+
+`ExposedReportRepository` implements the `ReportRepository` interface.
+
+This allows other parts of the application to depend on an abstraction rather than a specific database framework.
+
+### Inheritance and Polymorphism
+
+The repository stores all three report subclasses in one database table.
+
+When records are retrieved, it reconstructs the correct subclass.
+
+The application can therefore continue to work with `List<Report>` while retaining the specific behavior and properties of each subclass.
+
+### Encapsulation
+
+Database queries are kept inside the repository implementation.
+
+The domain models do not contain SQL statements or Exposed-specific code.
+
+### Kotlin Collection Operations
+
+The repository uses Kotlin collection operations when converting database results into domain objects.
+
+This demonstrates how Kotlin's functional collection API can be used alongside object-oriented design and database access.
+
+## 17. Challenges and Lessons Learned
+
+### Domain Objects Are Different from Database Rows
+
+One important lesson was that an object-oriented domain model does not have to match the database structure exactly.
+
+In Kotlin, Brul2 uses an abstract `Report` class with three subclasses.
+
+In H2, these reports are stored in a single table.
+
+The repository connects these two representations.
+
+### New Objects Do Not Have Database IDs
+
+Another challenge was handling the positive-ID requirement from Checkpoint 3.
+
+A report cannot have a database-generated ID before it has been inserted.
+
+Creating `NewReport` solved this without weakening the existing domain validation.
+
+### Nullable Columns Need Validation
+
+Because all three report types share one table, some subtype-specific columns are nullable.
+
+However, that does not mean every combination of values should be accepted.
+
+The `NewReport` validation ensures that new reports contain the correct properties for their type.
+
+The repository also expects the appropriate values when reconstructing a stored subclass.
+
+### Database Tests Should Be Isolated
+
+I learned why automated tests should not use the same database file as the running application.
+
+Using separate in-memory H2 databases makes the repository tests independent and repeatable.
+
+### Use Libraries Instead of Rebuilding Infrastructure
+
+Exposed already provides table definitions, SQL operations, and transaction support.
+
+By using these features, I could focus on the report persistence rules rather than manually implementing JDBC infrastructure.
+
+## 18. Reflection
+
+Checkpoint 4 helped me understand how a Kotlin application can store and retrieve object-oriented domain models using a relational database.
+
+The most valuable part was learning to separate responsibilities.
+
+The domain classes represent neighborhood reports and their rules.
+
+The repository interface defines what persistence operations are available.
+
+The Exposed implementation performs the actual database work.
+
+The `DatabaseFactory` handles application-level database initialization.
+
+I also learned that database integration tests are different from unit tests. They verify that multiple components work together, including SQL table definitions, transactions, inserts, queries, and object reconstruction.
+
+Having 16 passing tests gives me a reliable foundation for implementing the REST API.
+
+## 19. Next Steps
+
+Before starting the report REST API, I plan to complete a small **Checkpoint 4.1 — Domain and Persistence Refinement**.
+
+This is a planned improvement and is not part of the completed Checkpoint 4 implementation.
+
+The main changes will be:
+
+1. Introduce a `ReportCategory` enum based on the original Brul design.
+2. Give all three report types appropriate categories.
+3. Replace the current `summary()` method with meaningful category validation and subtype-specific behavior.
+4. Update `NewReport`, `ReportsTable`, and `ExposedReportRepository` to support the refined domain model.
+5. Prevent updates from changing a report's type unexpectedly.
+6. Update and extend the tests until the full suite passes again.
+
+After that, the next major milestone will be **Checkpoint 5 — Report Service & REST API**.
+
+In that checkpoint, I will:
+
+1. Create the `ReportService`.
+2. Add request and response DTOs.
+3. Implement Ktor routes for creating, listing, retrieving, updating, and deleting reports.
+4. Add search and filtering functionality.
+5. Use existing Ktor plugins and Kotlin libraries for JSON handling, request validation, and error handling wherever appropriate.
+6. Write HTTP integration tests.
+
+Later checkpoints will restore additional functionality from the original Brul project, including authentication, voting, and help-request participation, capacity management, and closing requests.
+
+The goal is to rebuild the original Brul functionality with a clearer architecture, reusable libraries, and meaningful automated tests.
+
+---
+
+**Checkpoint 4 completed — 16 tests passed.**

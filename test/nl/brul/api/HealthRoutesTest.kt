@@ -6,6 +6,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -18,8 +19,12 @@ class HealthRoutesTest {
     @Test
     fun `health endpoint returns JSON`() = testApplication {
         environment {
-            config = io.ktor.server.config.MapApplicationConfig(
-                "brul.name" to "brul-api"
+            config = MapApplicationConfig(
+                "brul.name" to "brul-api",
+                "database.url" to "jdbc:h2:mem:brul_test;DB_CLOSE_DELAY=-1",
+                "database.driver" to "org.h2.Driver",
+                "database.user" to "sa",
+                "database.password" to ""
             )
         }
 

@@ -14,55 +14,50 @@ class ReportModelTest {
     )
 
     @Test
-    fun `safety report has correct type and summary`() {
+    fun `safety report has correct type and category`() {
         val report = SafetyReport(
             id = 1,
-            title = "Broken streetlight",
-            description = "Streetlight is not working.",
+            title = "Unsafe crossing",
+            description = "Cars are speeding.",
+            category = ReportCategory.TRAFFIC_SAFETY,
             location = location,
             urgent = true
         )
 
         assertEquals(ReportType.SAFETY, report.type)
+        assertEquals(ReportCategory.TRAFFIC_SAFETY, report.category)
         assertEquals(ReportStatus.OPEN, report.status)
-        assertEquals(
-            "Safety: Broken streetlight (Urgent)",
-            report.summary()
-        )
+        assertTrue(report.urgent)
     }
 
     @Test
-    fun `nuisance report has correct type and summary`() {
+    fun `nuisance report has correct type and category`() {
         val report = NuisanceReport(
             id = 2,
             title = "Noise at night",
             description = "Loud music after midnight.",
-            location = location,
-            category = "Noise"
+            category = ReportCategory.NOISE,
+            location = location
         )
 
         assertEquals(ReportType.NUISANCE, report.type)
-        assertEquals(
-            "Nuisance: Noise at night (Noise)",
-            report.summary()
-        )
+        assertEquals(ReportCategory.NOISE, report.category)
     }
 
     @Test
-    fun `help request has correct type and summary`() {
+    fun `help request has correct type and category`() {
         val report = HelpRequest(
             id = 3,
             title = "Help with groceries",
             description = "Need help carrying groceries.",
+            category = ReportCategory.GROCERIES,
             location = location,
             volunteersNeeded = 2
         )
 
         assertEquals(ReportType.HELP_REQUEST, report.type)
-        assertEquals(
-            "Help: Help with groceries (2 volunteers needed)",
-            report.summary()
-        )
+        assertEquals(ReportCategory.GROCERIES, report.category)
+        assertEquals(2, report.volunteersNeeded)
     }
 
     @Test
@@ -72,6 +67,7 @@ class ReportModelTest {
                 id = 1,
                 title = "Unsafe crossing",
                 description = "Cars are speeding.",
+                category = ReportCategory.TRAFFIC_SAFETY,
                 location = location,
                 urgent = true
             ),
@@ -79,24 +75,29 @@ class ReportModelTest {
                 id = 2,
                 title = "Litter",
                 description = "Trash on the sidewalk.",
-                location = location,
-                category = "Waste"
+                category = ReportCategory.WASTE,
+                location = location
             ),
             HelpRequest(
                 id = 3,
                 title = "Moving furniture",
                 description = "Need help moving a table.",
+                category = ReportCategory.MOVING,
                 location = location,
                 volunteersNeeded = 2
             )
         )
 
-        val summaries = reports.map { it.summary() }
+        val types = reports.map { it.type }
 
-        assertEquals(3, summaries.size)
-        assertTrue(summaries[0].startsWith("Safety:"))
-        assertTrue(summaries[1].startsWith("Nuisance:"))
-        assertTrue(summaries[2].startsWith("Help:"))
+        assertEquals(
+            listOf(
+                ReportType.SAFETY,
+                ReportType.NUISANCE,
+                ReportType.HELP_REQUEST
+            ),
+            types
+        )
     }
 
     @Test
@@ -106,6 +107,7 @@ class ReportModelTest {
                 id = 1,
                 title = " ",
                 description = "Invalid report.",
+                category = ReportCategory.THEFT,
                 location = location,
                 urgent = false
             )
@@ -129,6 +131,7 @@ class ReportModelTest {
                 id = 3,
                 title = "Help needed",
                 description = "Need some assistance.",
+                category = ReportCategory.GROCERIES,
                 location = location,
                 volunteersNeeded = 0
             )
@@ -136,14 +139,42 @@ class ReportModelTest {
     }
 
     @Test
-    fun `nuisance category cannot be blank`() {
+    fun `safety report rejects nuisance category`() {
+        assertFailsWith<IllegalArgumentException> {
+            SafetyReport(
+                id = 1,
+                title = "Invalid safety report",
+                description = "Incorrect category.",
+                category = ReportCategory.NOISE,
+                location = location,
+                urgent = false
+            )
+        }
+    }
+
+    @Test
+    fun `nuisance report rejects help category`() {
         assertFailsWith<IllegalArgumentException> {
             NuisanceReport(
                 id = 2,
-                title = "Noise",
-                description = "Loud noise outside.",
+                title = "Invalid nuisance report",
+                description = "Incorrect category.",
+                category = ReportCategory.GROCERIES,
+                location = location
+            )
+        }
+    }
+
+    @Test
+    fun `help request rejects safety category`() {
+        assertFailsWith<IllegalArgumentException> {
+            HelpRequest(
+                id = 3,
+                title = "Invalid help request",
+                description = "Incorrect category.",
+                category = ReportCategory.THEFT,
                 location = location,
-                category = ""
+                volunteersNeeded = 2
             )
         }
     }

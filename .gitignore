@@ -2,6 +2,9 @@
 build/
 out/
 
+# Local H2 database files
+data/
+
 # IntelliJ IDEA
 .idea/
 *.iml

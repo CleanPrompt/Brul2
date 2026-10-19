@@ -93,7 +93,7 @@ The test suite covers HTTP endpoints, error handling, and report domain behavior
 - [x] Checkpoint 1 — Ktor Server & Routing
 - [x] Checkpoint 2 — JSON, Configuration & Error Handling
 - [x] Checkpoint 3 — Report Domain Models
-- [ ] Checkpoint 4 — Database & Repositories
+- [x] Checkpoint 4 — Database & Repositories
 - [ ] Checkpoint 5 — Reports REST API
 - [ ] Checkpoint 6 — Users & Authentication
 - [ ] Checkpoint 7 — Voting

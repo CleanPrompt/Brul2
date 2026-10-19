@@ -8,6 +8,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import kotlinx.serialization.json.Json
 import nl.brul.api.common.error.configureErrorHandling
 import nl.brul.api.config.AppConfig
+import nl.brul.api.database.DatabaseFactory
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -25,5 +26,6 @@ fun Application.module() {
     }
 
     configureErrorHandling()
+    DatabaseFactory.init(this)
     configureRouting(config)
 }

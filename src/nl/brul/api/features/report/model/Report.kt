@@ -5,6 +5,7 @@ abstract class Report(
     val id: Long,
     val title: String,
     val description: String,
+    val category: ReportCategory,
     val location: Location,
     val status: ReportStatus = ReportStatus.OPEN
 ) {
@@ -24,5 +25,5 @@ abstract class Report(
 
     abstract val type: ReportType
 
-    abstract fun summary(): String
+    protected abstract fun validateCategory()
 }

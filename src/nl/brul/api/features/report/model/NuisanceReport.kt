@@ -5,20 +5,27 @@ class NuisanceReport(
     id: Long,
     title: String,
     description: String,
+    category: ReportCategory,
     location: Location,
-    val category: String,
     status: ReportStatus = ReportStatus.OPEN
-) : Report(id, title, description, location, status) {
-
-    init {
-        require(category.isNotBlank()) {
-            "Nuisance category cannot be blank."
-        }
-    }
+) : Report(id, title, description, category, location, status) {
 
     override val type: ReportType = ReportType.NUISANCE
 
-    override fun summary(): String {
-        return "Nuisance: $title ($category)"
+    init {
+        validateCategory()
+    }
+
+    override fun validateCategory() {
+        require(
+            category in setOf(
+                ReportCategory.NOISE,
+                ReportCategory.WASTE,
+                ReportCategory.VANDALISM,
+                ReportCategory.PARKING
+            )
+        ) {
+            "Invalid nuisance report category."
+        }
     }
 }

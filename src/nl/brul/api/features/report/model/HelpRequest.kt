@@ -5,20 +5,33 @@ class HelpRequest(
     id: Long,
     title: String,
     description: String,
+    category: ReportCategory,
     location: Location,
     val volunteersNeeded: Int,
     status: ReportStatus = ReportStatus.OPEN
-) : Report(id, title, description, location, status) {
+) : Report(id, title, description, category, location, status) {
+
+    override val type: ReportType = ReportType.HELP_REQUEST
 
     init {
+        validateCategory()
+
         require(volunteersNeeded > 0) {
             "At least one volunteer must be needed."
         }
     }
 
-    override val type: ReportType = ReportType.HELP_REQUEST
-
-    override fun summary(): String {
-        return "Help: $title ($volunteersNeeded volunteers needed)"
+    override fun validateCategory() {
+        require(
+            category in setOf(
+                ReportCategory.GROCERIES,
+                ReportCategory.TRANSPORT,
+                ReportCategory.MOVING,
+                ReportCategory.CHORES,
+                ReportCategory.OTHER
+            )
+        ) {
+            "Invalid help request category."
+        }
     }
 }
