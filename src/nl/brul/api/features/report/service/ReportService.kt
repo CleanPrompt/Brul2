@@ -36,4 +36,50 @@ class ReportService(
 
         return repository.delete(id)
     }
+
+    fun search(search: ReportSearch): List<Report> {
+        var results = repository.findAll()
+
+        val query = search.query?.trim()
+
+        if (!query.isNullOrEmpty()) {
+            results = results.filter { report ->
+                report.title.contains(query, ignoreCase = true) ||
+                        report.description.contains(query, ignoreCase = true)
+            }
+        }
+
+        if (search.type != null) {
+            results = results.filter { report ->
+                report.type == search.type
+            }
+        }
+
+        if (search.category != null) {
+            results = results.filter { report ->
+                report.category == search.category
+            }
+        }
+
+        if (search.radiusKm != null) {
+            val center = requireNotNull(search.location)
+            results = results.filter { report ->
+                report.location.distanceTo(center) <= search.radiusKm
+            }
+        }
+
+        return when (search.sort) {
+            ReportSort.ID_ASC -> results.sortedBy { it.id }
+
+            ReportSort.ID_DESC -> results.sortedByDescending { it.id }
+
+            ReportSort.NEAREST -> {
+                val center = requireNotNull(search.location)
+                results.sortedWith(
+                    compareBy<Report> { it.location.distanceTo(center) }
+                        .thenBy { it.id }
+                )
+            }
+        }
+    }
 }
