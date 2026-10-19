@@ -9,54 +9,163 @@ The application is developed step by step, with automated tests for each checkpo
 ## Project Structure
 
 ```text
-Brul2/
-├── README.md
-├── ROADMAP.md
+Brul2
+├── docs
+│   └── uml
+│       └── report-domain.puml
+├── resources
+│   ├── application.yaml
+│   └── logback.xml
+├── src
+│   ├── nl
+│   │   └── brul
+│   │       └── api
+│   │           ├── common
+│   │           │   └── error
+│   │           │       ├── ApiError.kt
+│   │           │       └── ErrorHandling.kt
+│   │           ├── config
+│   │           │   └── AppConfig.kt
+│   │           ├── database
+│   │           │   └── DatabaseFactory.kt
+│   │           ├── features
+│   │           │   └── report
+│   │           │       ├── dto
+│   │           │       │   ├── CreateReportRequest.kt
+│   │           │       │   ├── ReportMapper.kt
+│   │           │       │   ├── ReportResponse.kt
+│   │           │       │   └── UpdateReportRequest.kt
+│   │           │       ├── model
+│   │           │       │   ├── HelpRequest.kt
+│   │           │       │   ├── Location.kt
+│   │           │       │   ├── NuisanceReport.kt
+│   │           │       │   ├── Report.kt
+│   │           │       │   ├── ReportCategory.kt
+│   │           │       │   ├── ReportStatus.kt
+│   │           │       │   ├── ReportType.kt
+│   │           │       │   └── SafetyReport.kt
+│   │           │       ├── repository
+│   │           │       │   ├── ExposedReportRepository.kt
+│   │           │       │   ├── NewReport.kt
+│   │           │       │   ├── ReportRepository.kt
+│   │           │       │   └── ReportsTable.kt
+│   │           │       ├── routes
+│   │           │       │   └── ReportRoutes.kt
+│   │           │       └── service
+│   │           │           ├── ReportSearch.kt
+│   │           │           └── ReportService.kt
+│   │           ├── Application.kt
+│   │           └── Routing.kt
+│   └── .txt
+├── test
+│   └── nl
+│       └── brul
+│           └── api
+│               ├── features
+│               │   └── report
+│               │       ├── dto
+│               │       │   └── ReportDtoTest.kt
+│               │       ├── model
+│               │       │   └── ReportModelTest.kt
+│               │       ├── repository
+│               │       │   ├── ExposedReportRepositoryTest.kt
+│               │       │   └── ReportMetadataTest.kt
+│               │       ├── routes
+│               │       │   ├── ReportApiIntegrationTest.kt
+│               │       │   └── ReportRoutesTest.kt
+│               │       └── service
+│               │           ├── ReportSearchTest.kt
+│               │           ├── ReportServiceTest.kt
+│               │           └── ReportSortingTest.kt
+│               ├── ErrorHandlingTest.kt
+│               └── HealthRoutesTest.kt
+├── .gitattributes
+├── .gitignore
+├── kotlin
+├── kotlin.bat
+├── LICENSE
 ├── module.yaml
-├── resources/
-│   └── application.yaml
-├── src/
-│   └── nl/brul/api/
-│       ├── Application.kt
-│       ├── Routing.kt
-│       ├── config/
-│       │   └── AppConfig.kt
-│       ├── common/
-│       │   └── error/
-│       │       ├── ApiError.kt
-│       │       └── ErrorHandling.kt
-│       ├── database/
-│       │   └── DatabaseFactory.kt
-│       └── features/
-│           └── report/
-│               ├── model/
-│               │   ├── Report.kt
-│               │   ├── SafetyReport.kt
-│               │   ├── NuisanceReport.kt
-│               │   ├── HelpRequest.kt
-│               │   ├── Location.kt
-│               │   ├── ReportCategory.kt
-│               │   ├── ReportStatus.kt
-│               │   └── ReportType.kt
-│               ├── repository/
-│               │   ├── NewReport.kt
-│               │   ├── ReportRepository.kt
-│               │   ├── ExposedReportRepository.kt
-│               │   └── ReportsTable.kt
-│               └── service/
-│                   └── ReportService.kt
-└── test/
-    └── nl/brul/api/
-        ├── HealthRoutesTest.kt
-        ├── ErrorHandlingTest.kt
-        └── features/
-            └── report/
-                ├── model/
-                │   └── ReportModelTest.kt
-                ├── repository/
-                │   └── ExposedReportRepositoryTest.kt
-                └── service/
-                    └── ReportServiceTest.kt
+├── projectstructuur.txt
+├── README.md
+└── ROADMAP.md
+PS C:\Users\phamb\IdeaProjects\Brul2> Show-Tree
+├── docs
+│   └── uml
+│       └── report-domain.puml
+├── resources
+│   ├── application.yaml
+│   └── logback.xml
+├── src
+│   └── nl
+│       └── brul
+│           └── api
+│               ├── common
+│               │   └── error
+│               │       ├── ApiError.kt
+│               │       └── ErrorHandling.kt
+│               ├── config
+│               │   └── AppConfig.kt
+│               ├── database
+│               │   └── DatabaseFactory.kt
+│               ├── features
+│               │   └── report
+│               │       ├── dto
+│               │       │   ├── CreateReportRequest.kt
+│               │       │   ├── ReportMapper.kt
+│               │       │   ├── ReportResponse.kt
+│               │       │   └── UpdateReportRequest.kt
+│               │       ├── model
+│               │       │   ├── HelpRequest.kt
+│               │       │   ├── Location.kt
+│               │       │   ├── NuisanceReport.kt
+│               │       │   ├── Report.kt
+│               │       │   ├── ReportCategory.kt
+│               │       │   ├── ReportStatus.kt
+│               │       │   ├── ReportType.kt
+│               │       │   └── SafetyReport.kt
+│               │       ├── repository
+│               │       │   ├── ExposedReportRepository.kt
+│               │       │   ├── NewReport.kt
+│               │       │   ├── ReportRepository.kt
+│               │       │   └── ReportsTable.kt
+│               │       ├── routes
+│               │       │   └── ReportRoutes.kt
+│               │       └── service
+│               │           ├── ReportSearch.kt
+│               │           └── ReportService.kt
+│               ├── Application.kt
+│               └── Routing.kt
+├── test
+│   └── nl
+│       └── brul
+│           └── api
+│               ├── features
+│               │   └── report
+│               │       ├── dto
+│               │       │   └── ReportDtoTest.kt
+│               │       ├── model
+│               │       │   └── ReportModelTest.kt
+│               │       ├── repository
+│               │       │   ├── ExposedReportRepositoryTest.kt
+│               │       │   └── ReportMetadataTest.kt
+│               │       ├── routes
+│               │       │   ├── ReportApiIntegrationTest.kt
+│               │       │   └── ReportRoutesTest.kt
+│               │       └── service
+│               │           ├── ReportSearchTest.kt
+│               │           ├── ReportServiceTest.kt
+│               │           └── ReportSortingTest.kt
+│               ├── ErrorHandlingTest.kt
+│               └── HealthRoutesTest.kt
+├── .gitattributes
+├── .gitignore
+├── hete_saus.txt
+├── kotlin
+├── kotlin.bat
+├── LICENSE
+├── module.yaml
+├── README.md
+└── ROADMAP.md
 ```
 
 ## Technologies

@@ -25,5 +25,9 @@ object ReportsTable : Table("reports") {
 
     val volunteersNeeded = integer("volunteers_needed").nullable()
 
+    val createdAt = long("created_at").default(0L)
+
+    val viewCount = integer("view_count").default(0)
+
     override val primaryKey = PrimaryKey(id)
 }

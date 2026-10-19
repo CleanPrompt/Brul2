@@ -20,10 +20,17 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 
 class ExposedReportRepository(
-    private val database: Database
+    private val database: Database,
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis
 ) : ReportRepository {
 
     override fun create(report: NewReport): Report = transaction(database) {
+        val timestamp = currentTimeMillis()
+
+        require(timestamp > 0) {
+            "Creation timestamp must be positive."
+        }
+
         val id = ReportsTable.insert {
             it[type] = report.type.name
             it[title] = report.title
@@ -34,6 +41,8 @@ class ExposedReportRepository(
             it[status] = ReportStatus.OPEN.name
             it[urgent] = report.urgent
             it[volunteersNeeded] = report.volunteersNeeded
+            it[createdAt] = timestamp
+            it[viewCount] = 0
         } get ReportsTable.id
 
         requireNotNull(findById(id)) {
@@ -103,6 +112,7 @@ class ExposedReportRepository(
         val id = this[ReportsTable.id]
         val title = this[ReportsTable.title]
         val description = this[ReportsTable.description]
+
         val category = ReportCategory.valueOf(
             this[ReportsTable.category]
         )
@@ -116,6 +126,9 @@ class ExposedReportRepository(
             this[ReportsTable.status]
         )
 
+        val createdAt = this[ReportsTable.createdAt]
+        val viewCount = this[ReportsTable.viewCount]
+
         return when (
             ReportType.valueOf(this[ReportsTable.type])
         ) {
@@ -126,7 +139,9 @@ class ExposedReportRepository(
                 category = category,
                 location = location,
                 urgent = requireNotNull(this[ReportsTable.urgent]),
-                status = status
+                status = status,
+                createdAt = createdAt,
+                viewCount = viewCount
             )
 
             ReportType.NUISANCE -> NuisanceReport(
@@ -135,7 +150,9 @@ class ExposedReportRepository(
                 description = description,
                 category = category,
                 location = location,
-                status = status
+                status = status,
+                createdAt = createdAt,
+                viewCount = viewCount
             )
 
             ReportType.HELP_REQUEST -> HelpRequest(
@@ -147,7 +164,9 @@ class ExposedReportRepository(
                 volunteersNeeded = requireNotNull(
                     this[ReportsTable.volunteersNeeded]
                 ),
-                status = status
+                status = status,
+                createdAt = createdAt,
+                viewCount = viewCount
             )
         }
     }

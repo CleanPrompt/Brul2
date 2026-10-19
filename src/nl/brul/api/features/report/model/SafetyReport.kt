@@ -8,9 +8,13 @@ class SafetyReport(
     category: ReportCategory,
     location: Location,
     val urgent: Boolean,
-    status: ReportStatus = ReportStatus.OPEN
-) : Report(id, title, description, category, location, status) {
-
+    status: ReportStatus = ReportStatus.OPEN,
+    createdAt: Long = System.currentTimeMillis(),
+    viewCount: Int = 0
+) : Report(
+    id, title, description, category, location,
+    status, createdAt, viewCount
+) {
     override val type: ReportType = ReportType.SAFETY
 
     init {

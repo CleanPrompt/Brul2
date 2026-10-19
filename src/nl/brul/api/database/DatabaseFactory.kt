@@ -4,13 +4,14 @@ package nl.brul.api.database
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import nl.brul.api.features.report.repository.ReportsTable
+import nl.brul.api.features.user.repository.UsersTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 
 object DatabaseFactory {
 
-    fun init(application: Application) {
+    fun init(application: Application): Database {
         val config = application.environment.config
 
         val url = config.property("database.url").getString()
@@ -26,9 +27,14 @@ object DatabaseFactory {
         )
 
         transaction(database) {
-            SchemaUtils.create(ReportsTable)
+            SchemaUtils.create(
+                ReportsTable,
+                UsersTable
+            )
         }
 
         application.log.info("Database initialized.")
+
+        return database
     }
 }

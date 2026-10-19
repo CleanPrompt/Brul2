@@ -8,7 +8,9 @@ import nl.brul.api.features.report.model.ReportType
 enum class ReportSort {
     ID_ASC,
     ID_DESC,
-    NEAREST
+    NEAREST,
+    NEWEST,
+    MOST_VIEWED
 }
 
 data class ReportSearch(
@@ -24,7 +26,6 @@ data class ReportSearch(
             require(radiusKm.isFinite() && radiusKm > 0) {
                 "Search radius must be a positive finite number."
             }
-
             require(location != null) {
                 "A location is required when filtering by radius."
             }

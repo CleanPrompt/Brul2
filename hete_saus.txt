@@ -1,0 +1,28 @@
+﻿$exclude = @('build', '.git', '.idea', '.amper', 'data', 'data-backup')
+
+function Show-Tree {
+    param(
+        [string]$Path = '.',
+        [string]$Indent = ''
+    )
+
+    $items = @(Get-ChildItem -LiteralPath $Path |
+        Where-Object { $_.Name -notin $exclude } |
+        Sort-Object @{Expression = { -not $_.PSIsContainer }}, Name)
+
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        $item = $items[$i]
+        $last = $i -eq ($items.Count - 1)
+        $branch = if ($last) { '└── ' } else { '├── ' }
+
+        Write-Output "$Indent$branch$($item.Name)"
+
+        if ($item.PSIsContainer) {
+            $nextIndent = if ($last) { "$Indent    " } else { "$Indent│   " }
+            Show-Tree -Path $item.FullName -Indent $nextIndent
+        }
+    }
+}
+
+Write-Output 'Brul2/'
+Show-Tree

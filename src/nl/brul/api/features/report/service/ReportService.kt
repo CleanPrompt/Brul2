@@ -8,32 +8,26 @@ import nl.brul.api.features.report.repository.ReportRepository
 class ReportService(
     private val repository: ReportRepository
 ) {
+    fun create(report: NewReport): Report =
+        repository.create(report)
 
-    fun create(report: NewReport): Report {
-        return repository.create(report)
-    }
-
-    fun findAll(): List<Report> {
-        return repository.findAll()
-    }
+    fun findAll(): List<Report> =
+        repository.findAll()
 
     fun findById(id: Long): Report? {
         require(id > 0) {
             "Report ID must be positive."
         }
-
         return repository.findById(id)
     }
 
-    fun update(report: Report): Boolean {
-        return repository.update(report)
-    }
+    fun update(report: Report): Boolean =
+        repository.update(report)
 
     fun delete(id: Long): Boolean {
         require(id > 0) {
             "Report ID must be positive."
         }
-
         return repository.delete(id)
     }
 
@@ -63,23 +57,41 @@ class ReportService(
 
         if (search.radiusKm != null) {
             val center = requireNotNull(search.location)
+
             results = results.filter { report ->
                 report.location.distanceTo(center) <= search.radiusKm
             }
         }
 
         return when (search.sort) {
-            ReportSort.ID_ASC -> results.sortedBy { it.id }
+            ReportSort.ID_ASC ->
+                results.sortedBy { it.id }
 
-            ReportSort.ID_DESC -> results.sortedByDescending { it.id }
+            ReportSort.ID_DESC ->
+                results.sortedByDescending { it.id }
 
             ReportSort.NEAREST -> {
                 val center = requireNotNull(search.location)
+
                 results.sortedWith(
-                    compareBy<Report> { it.location.distanceTo(center) }
-                        .thenBy { it.id }
+                    compareBy<Report> {
+                        it.location.distanceTo(center)
+                    }.thenBy { it.id }
                 )
             }
+
+            ReportSort.NEWEST ->
+                results.sortedWith(
+                    compareByDescending<Report> { it.createdAt }
+                        .thenByDescending { it.id }
+                )
+
+            ReportSort.MOST_VIEWED ->
+                results.sortedWith(
+                    compareByDescending<Report> { it.viewCount }
+                        .thenByDescending { it.createdAt }
+                        .thenByDescending { it.id }
+                )
         }
     }
 }
