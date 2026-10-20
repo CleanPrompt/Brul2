@@ -1,5 +1,5 @@
-// src/nl/brul/api/features/user/repository/NewUser.kt
-package nl.brul.api.features.user.repository
+// src/nl/brul/api/features/user/model/NewUser.kt
+package nl.brul.api.features.user.model
 
 data class NewUser(
     val username: String,

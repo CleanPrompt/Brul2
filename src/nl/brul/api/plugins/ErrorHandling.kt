@@ -3,15 +3,32 @@ package nl.brul.api.plugins
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
-import io.ktor.server.application.log
 import io.ktor.server.application.install
+import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import nl.brul.api.common.error.ApiError
+import nl.brul.api.features.auth.service.EmailAlreadyRegisteredException
+import nl.brul.api.features.auth.service.InvalidCredentialsException
 
 fun Application.configureErrorHandling() {
+
     install(StatusPages) {
+
+        exception<EmailAlreadyRegisteredException> { call, _ ->
+            call.respond(
+                HttpStatusCode.Conflict,
+                ApiError("Email address is already registered.")
+            )
+        }
+
+        exception<InvalidCredentialsException> { call, _ ->
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                ApiError("Invalid email or password.")
+            )
+        }
 
         exception<IllegalArgumentException> { call, _ ->
             call.respond(

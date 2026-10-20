@@ -1,3 +1,7 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
 # Build output
 build/
 out/
@@ -5,9 +9,10 @@ out/
 # Local H2 database files
 data/
 
-# IntelliJ IDEA
-.idea/
-*.iml
+# Local environment configuration
+.env
+.env.*
+!.env.example
 
 # Kotlin / JVM
 *.class

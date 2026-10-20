@@ -1,5 +1,6 @@
 // src/nl/brul/api/features/user/repository/ExposedUserRepository.kt
 package nl.brul.api.features.user.repository
+import nl.brul.api.features.user.model.NewUser
 
 import nl.brul.api.features.user.model.User
 import org.jetbrains.exposed.sql.Database
