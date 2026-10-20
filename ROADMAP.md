@@ -1,70 +1,39 @@
 # Brul2 — Development Roadmap
 
-**Last updated:** 20 October 2026  
-**Current progress:** Checkpoint 6.5D completed — **168 tests passed**.  
-**Next checkpoint:** 6.6 — Authentication and Authorization Integration Tests and Security Review.
+Brul2 is a REST API built with Kotlin, Ktor, JetBrains Amper, Exposed and H2.
 
-Brul2 is a REST API built with Kotlin, Ktor, JetBrains Amper (Kotlin Toolchain), JetBrains Exposed SQL DSL, and H2.
-
-The application uses a feature-based architecture, separating HTTP routes, business logic, repository interfaces, database implementations, and shared technical components.
-
-> **Verification note:** The developer confirmed that `kotlin test` reported 168 passing tests after implementing report ownership, protected report operations, user roles, and JWT role claims. GitHub commit and push status has not been independently verified. Checklist items distinguish implemented functionality from work still requiring verification.
-
----
+The project follows a feature-based architecture and focuses on simplicity, maintainability, object-oriented programming (OOP), functional programming (FP), and the requirements of the school assignment.
 
 ## Project Principles
 
-- Keep the implementation simple and maintainable (KISS).
-- Prefer techniques taught at school when appropriate.
-- Use established libraries for generic infrastructure, security, serialization, and persistence.
-- Organize business functionality by feature.
-- Separate HTTP routes, services, repository interfaces, and database implementations.
-- Use constructor injection and repository interfaces to support testing.
-- Keep Ktor plugin configuration in `plugins/` and reusable security components in `security/`.
-- Write Kotlin code and comments in English.
-- Use Kotlin null-safety and avoid unnecessary `!!`.
-- Test normal behavior, invalid input, and edge cases throughout development.
-- Preserve important functionality from the original Brul project.
-- Keep secrets outside source control.
-- Commit completed checkpoints and verify successful GitHub pushes.
+- Keep It Simple (KISS).
+- Use libraries and techniques covered in the school lessons.
+- Organize code by feature.
+- Separate routes, services and repositories.
+- Use repository interfaces for testability.
+- Write code and comments in English.
+- Use Kotlin null-safety and avoid `!!`.
+- Write tests throughout development.
+- Complete each checkpoint with a GitHub commit.
 - Do not implement an AI agent.
 
 ---
 
-## Progress at a Glance
+## Progress Overview
 
-| Checkpoint | Scope | Status | Confirmed Cumulative Tests |
-|---|---|---|---:|
-| 1 | Ktor server and health route | Completed | — |
-| 2 | JSON, configuration, error handling | Completed | — |
-| 3 | Report domain hierarchy | Completed | — |
-| 4 | H2 and Exposed report repository | Completed | — |
-| 4.1 | Report categories and type validation | Completed | 19 |
-| 5.1 | ReportService CRUD | Completed | 28 |
-| 5.2A | Search, filtering, distance sorting | Completed | 44 |
-| 5.2B | Report metadata and additional sorting | Completed | 54 |
-| 5.3 | Report request/response DTOs | Completed | 66 |
-| 5.4 | Report HTTP routes | Completed | 76 |
-| 5.5 | API error handling and H2 integration tests | Completed | 84 |
-| 6.1 | User model and persistence | Completed | 95 |
-| 6.2 | BCrypt password hashing | Completed | 105 |
-| Architecture refactor | Ktor plugins and shared security packages | Completed | — |
-| 6.3A | Registration and login business logic | Completed | — |
-| 6.3B | Authentication DTOs and HTTP routes | Completed | — |
-| 6.3C | Authentication integration tests | Completed | — |
-| 6.4A | JWT configuration and token service | Completed | 150 |
-| 6.4B | Ktor JWT authentication and integration tests | Completed | 156 |
-| 6.5A | Report ownership model and persistence | Completed | 156 |
-| 6.5B | JWT-protected report operations | Completed | 162 |
-| 6.5C | Ownership authorization | Completed | 166 |
-| 6.5D | User roles and JWT role claims | Completed | **168** |
-| 6.6 | Authorization integration tests and security review | Next | — |
-| 7 | Report voting | Planned | — |
-| 8 | Help participation | Planned | — |
-| 9 | Testing and quality review | Planned | — |
-| 10 | Documentation and delivery | Planned | — |
+| Checkpoint | Feature | Status |
+|---|---|---|
+| 1–5 | Foundation, domain, database, reports API | Implemented |
+| 6 | Users and JWT authentication | Implemented and tested |
+| 7 | Voting, sorting, cascade deletion | Implemented and tested; 239 confirmed |
+| 8 | Help participation | Implemented and tested |
+| 9 | Report status management | Implemented and tested |
+| 10 | Quality review | Pending |
+| 11 | Documentation and delivery | Pending |
 
-**Test counts are cumulative milestones, not separate groups to add together.**
+**Test status:** All tests passed after Checkpoint 9; expected 263 total, exact number unconfirmed.
+
+**Principle:** Prefer meaningful tests and KISS over unnecessary complexity or test count.
 
 ---
 
@@ -72,41 +41,52 @@ The application uses a feature-based architecture, separating HTTP routes, busin
 
 ### Checkpoint 1 — Ktor Server & Routing
 
-**Status: Completed**
+**Status:** Implemented
 
-- [x] Create Brul2 with JetBrains Amper.
-- [x] Configure `module.yaml` and `resources/application.yaml`.
-- [x] Create the application entry point in `Application.kt`.
+Tasks:
+- [x] Create Brul2 using JetBrains Amper.
+- [x] Configure `module.yaml`.
+- [x] Configure `application.yaml`.
+- [x] Create `Application.kt`.
+- [x] Create `Routing.kt`.
 - [x] Implement `GET /api/v1/health`.
-- [x] Start the server and test the health response.
+- [x] Start the server successfully.
 - [x] Create `HealthRoutesTest.kt`.
-- [x] Establish initial README documentation and Git history.
-- [ ] Verify the initial commit was pushed to GitHub.
+- [x] Run `kotlin test`.
+- [ ] Verify `README.md` is up to date.
+- [ ] Verify commit and push to GitHub.
 
-**Current location:** Ktor routing configuration lives in `src/nl/brul/api/plugins/Routing.kt`.
+Tests:
+- Health endpoint returns HTTP 200.
+- Health endpoint returns the expected response.
 
-**Original commit:** `chore: initialize Brul2 Ktor project`
+Commit:
+`chore: initialize Brul2 Ktor project`
 
 ### Checkpoint 2 — JSON, Configuration & Error Handling
 
-**Status: Completed**
+**Status:** Implemented and tested
 
-- [x] Install Ktor `ContentNegotiation` and configure kotlinx.serialization.
-- [x] Reject unknown JSON fields (`ignoreUnknownKeys = false`).
-- [x] Create `AppConfig.kt` and `ApiError.kt`.
-- [x] Install Ktor `StatusPages` and return JSON errors.
-- [x] Test valid health JSON and error responses.
-- [x] Move plugin configuration into the `plugins/` package.
-- [ ] Verify the checkpoint commit and GitHub push.
+Tasks:
+- [x] Configure Ktor ContentNegotiation.
+- [x] Configure kotlinx.serialization.
+- [x] Create `AppConfig.kt`.
+- [x] Create `ApiError.kt`.
+- [x] Create `ErrorHandling.kt`.
+- [x] Configure Ktor StatusPages.
+- [x] Return JSON from the health endpoint.
+- [x] Add relevant tests.
+- [x] Update documentation.
+- [ ] Verify commit and push to GitHub.
 
-**Current locations:**
+Tests:
+- Health endpoint returns valid JSON.
+- Health endpoint returns HTTP 200.
+- Invalid requests return an appropriate error response.
+- Unexpected errors return HTTP 500 without exposing internal details.
 
-- `plugins/Serialization.kt`
-- `plugins/ErrorHandling.kt`
-- `config/AppConfig.kt`
-- `common/error/ApiError.kt`
-
-**Suggested commit:** `feat: configure JSON and error handling`
+Commit:
+`feat: configure JSON and error handling`
 
 ---
 
@@ -114,48 +94,64 @@ The application uses a feature-based architecture, separating HTTP routes, busin
 
 ### Checkpoint 3 — Report Domain Models
 
-**Status: Completed**
+**Status:** Implemented and tested
 
-- [x] Create abstract `Report` and its subclasses: `SafetyReport`, `NuisanceReport`, and `HelpRequest`.
-- [x] Create `Location`, `ReportType`, and `ReportStatus`.
-- [x] Implement domain validation and unit tests.
-- [x] Demonstrate inheritance, polymorphism, encapsulation, enums, and null-safety.
-- [ ] Verify the checkpoint commit and GitHub push.
+Tasks:
+- [x] Create abstract `Report` class.
+- [x] Create `SafetyReport`.
+- [x] Create `NuisanceReport`.
+- [x] Create `HelpRequest`.
+- [x] Create `Location`.
+- [x] Create `ReportType`.
+- [x] Create `ReportCategory`.
+- [x] Define domain validation rules.
+- [x] Write unit tests.
+- [x] Update documentation.
+- [ ] Verify commit and push to GitHub.
 
-**Suggested commit:** `feat: implement report domain models`
+School concepts:
+- Abstract classes.
+- Inheritance.
+- Polymorphism.
+- Encapsulation.
+- Data classes.
+- Enums.
+- Null safety.
+
+Tests:
+- Valid report creation.
+- Invalid category validation.
+- Invalid location validation.
+- Polymorphic behavior.
+- Help request business rules.
+
+Commit:
+`feat: implement report domain models`
 
 ### Checkpoint 4 — Database & Repositories
 
-**Status: Completed**
+**Status:** Implemented and tested
 
-- [x] Add H2 and JetBrains Exposed SQL DSL.
-- [x] Create `DatabaseFactory.kt` and `ReportsTable.kt`.
-- [x] Create `NewReport`, the `ReportRepository` interface, and `ExposedReportRepository`.
-- [x] Implement report creation, retrieval, listing, updating, and deletion.
-- [x] Test persistence against isolated in-memory H2 databases.
-- [ ] Verify the checkpoint commit and GitHub push.
+Tasks:
+- [x] Add H2 dependency.
+- [x] Add Exposed DSL dependencies.
+- [x] Create `DatabaseFactory.kt`.
+- [x] Create `ReportsTable.kt`.
+- [x] Create `ReportRepository` interface.
+- [x] Create `ExposedReportRepository`.
+- [x] Configure database initialization.
+- [x] Write database integration tests.
+- [x] Update documentation.
+- [ ] Verify commit and push to GitHub.
 
-**Database:** The application uses an H2 file database for development. Integration tests use isolated in-memory H2 databases.
+Tests:
+- Save a report.
+- Retrieve a report.
+- Delete a report.
+- Verify database persistence.
 
-**Suggested commit:** `feat: add Exposed database persistence`
-
-### Checkpoint 4.1 — Report Categories & Type Validation
-
-**Status: Completed — 19 cumulative tests passed**
-
-- [x] Add `ReportCategory` to the report domain and persistence model.
-- [x] Validate allowed type/category combinations.
-- [x] Prevent changing an existing report's type during an update.
-- [x] Update tests and the PlantUML report model.
-- [ ] Verify database refactoring commit and GitHub push.
-
-| Report Type | Allowed Categories |
-|---|---|
-| `SafetyReport` | THEFT, SUSPICIOUS_SITUATION, TRAFFIC_SAFETY |
-| `NuisanceReport` | NOISE, WASTE, VANDALISM, PARKING |
-| `HelpRequest` | GROCERIES, TRANSPORT, MOVING, CHORES, OTHER |
-
-**Suggested commit:** `refactor: validate report categories and preserve report types`
+Commit:
+`feat: add Exposed database persistence`
 
 ---
 
@@ -163,24 +159,298 @@ The application uses a feature-based architecture, separating HTTP routes, busin
 
 ### Checkpoint 5 — Reports API
 
-**Status: Completed — 84 cumulative tests passed at the end of Checkpoint 5**
+**Status:** Implemented and tested
 
-#### Checkpoint 5.1 — ReportService CRUD
+Tasks:
+- [x] Create report request and response DTOs.
+- [x] Create `ReportService.kt`.
+- [x] Create `ReportRoutes.kt`.
+- [x] Implement report creation.
+- [x] Implement report retrieval.
+- [x] Implement report listing.
+- [x] Implement searching and filtering.
+- [x] Implement report updates.
+- [x] Implement report deletion.
+- [x] Implement validation and error responses.
+- [x] Write unit and integration tests.
+- [x] Add HTTP example requests.
+- [ ] Verify commit and push to GitHub.
 
-**Status: Completed — 28 cumulative tests passed**
+Endpoints (proposed):
+- `POST /api/v1/reports`
+- `GET /api/v1/reports`
+- `GET /api/v1/reports/{id}`
+- `PUT /api/v1/reports/{id}`
+- `DELETE /api/v1/reports/{id}`
 
-- [x] Create `ReportService.kt` with constructor-injected `ReportRepository`.
-- [x] Implement create, find by ID, list, update, and delete operations.
-- [x] Validate IDs and preserve report types during updates.
-- [x] Test business logic with a fake repository.
+Tests:
+- Create a valid report.
+- Reject invalid report data.
+- Retrieve an existing report.
+- Return 404 for an unknown report.
+- Search and filter reports.
+- Update a report.
+- Delete a report.
 
-#### Checkpoint 5.2A — Search, Filtering & Distance Sorting
+Commit:
+`feat: implement reports REST API`
 
-**Status: Completed — 44 cumulative tests passed**
+### Checkpoint 6 — Users & Authentication
 
-- [x] Create `ReportSearch`.
-- [x] Search report titles and descriptions.
-- [x] Filter by report type and category.
-- [x] Filter by geographic radius.
-- [x] Calculate distances with `Location.distanceTo()` using the Haversine formula.
-- [x] Support `ID_ASC`, `ID_DESC`, and `
+**Status:** Implemented and tested
+
+Tasks:
+- [x] Create `User` model.
+- [x] Create `Role` enum.
+- [x] Create `UsersTable.kt`.
+- [x] Create user repository.
+- [x] Create authentication DTOs.
+- [x] Implement user registration.
+- [x] Implement login.
+- [x] Add BCrypt password hashing.
+- [x] Configure JWT authentication.
+- [x] Protect endpoints requiring authentication.
+- [x] Implement authorization rules.
+- [x] Write unit and integration tests.
+- [x] Add HTTP example requests.
+- [ ] Verify commit and push to GitHub.
+
+Endpoints (proposed):
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/users/me`
+
+Tests:
+- Register a valid user.
+- Reject duplicate registration.
+- Login with valid credentials.
+- Reject incorrect passwords.
+- Reject requests without authentication.
+- Verify authorization rules.
+
+Note:
+- Start with access tokens only.
+- Do not implement refresh tokens unless required.
+
+Commit:
+`feat: implement user authentication`
+
+### Checkpoint 7 — Voting
+
+**Status:** Implemented and tested
+
+Tasks:
+- [x] Create vote model and DTOs.
+- [x] Create `VotesTable.kt`.
+- [x] Create vote repository.
+- [x] Create `VoteService.kt`.
+- [x] Create `VoteRoutes.kt`.
+- [x] Implement voting on reports.
+- [x] Implement changing or removing votes.
+- [x] Prevent duplicate votes.
+- [x] Implement vote counting.
+- [x] Require authentication.
+- [x] Write unit and integration tests.
+- [x] Add HTTP example requests.
+- [ ] Verify commit and push to GitHub.
+
+Tests:
+- Create a vote.
+- Prevent duplicate votes.
+- Change a vote.
+- Remove a vote.
+- Calculate vote totals.
+- Reject unauthorized voting.
+
+Commit:
+`feat: implement report voting`
+
+### Checkpoint 8 — Help Participation
+
+**Status:** Implemented and tested
+
+Tasks:
+- [x] Create help participation model.
+- [x] Create `HelpParticipationsTable.kt`.
+- [x] Create help repository.
+- [x] Create `HelpService.kt`.
+- [x] Create `HelpRoutes.kt`.
+- [x] Implement joining a help request.
+- [x] Implement leaving a help request.
+- [x] Validate participant capacity.
+- [x] Handle help request status.
+- [x] Prevent duplicate participation.
+- [x] Require authentication.
+- [x] Write unit and integration tests.
+- [x] Add HTTP example requests.
+- [ ] Verify commit and push to GitHub.
+
+Tests:
+- Join a help request.
+- Prevent duplicate participation.
+- Reject participation when capacity is full.
+- Leave a help request.
+- Reject participation in a closed help request.
+
+Commit:
+`feat: implement help participation`
+
+---
+
+### Checkpoint 9 — Report Status Management
+
+**Status:** Implemented and tested
+
+Tasks:
+- [x] Reuse existing `PUT /api/v1/reports/{id}` and owner authorization.
+- [x] Add `ReportStatusRules` and validate transitions in `ReportService.update`.
+- [x] Allow OPEN → IN_PROGRESS, OPEN → RESOLVED, and IN_PROGRESS → RESOLVED.
+- [x] Reject reopening a RESOLVED report and returning IN_PROGRESS to OPEN.
+- [x] Allow unchanged status.
+- [x] Add six focused status-rule tests.
+- [ ] Manually verify status updates through the running server.
+- [ ] Verify commit and push to GitHub.
+
+Note: Current status rules apply to **all report types**, not only help requests. Confirm that this matches the assignment.
+
+Suggested commit: `feat: validate report status transitions`
+
+---
+
+## Phase 4 — Quality & Delivery
+
+### Checkpoint 10 — Testing & Quality
+
+**Status:** Pending final review
+
+Tasks:
+- [ ] Review unit and integration test coverage for meaningful behavior.
+- [ ] Manually verify all API endpoints in the running application.
+- [ ] Verify authentication, authorization, invalid input and error handling.
+- [ ] Verify database initialization and cascade deletion.
+- [ ] Prevent lowering `volunteersNeeded` below the number of existing participants.
+- [ ] Decide whether status rules should apply to all report types.
+- [ ] Review Kotlin null-safety and remove unnecessary code.
+- [ ] Record the exact final test count.
+- [ ] Verify commit and push to GitHub.
+
+School requirements:
+- At least 3 meaningful unit tests.
+- At least 3 meaningful integration tests.
+- Check individual portfolio requirements.
+
+Suggested commit: `test: complete API quality review`
+
+### Checkpoint 11 — Documentation & Delivery
+
+**Status:** Pending
+
+Tasks:
+- [ ] Complete `README.md`.
+- [ ] Document project structure, installation, configuration and startup.
+- [ ] Document all actual API endpoints and JWT authentication.
+- [ ] Add HTTP request examples.
+- [ ] Create UML class diagram and UML package diagram.
+- [ ] Create at least 3 relevant sequence diagrams.
+- [ ] Explain OOP and FP usage with concrete examples.
+- [ ] Complete the school report and demonstration video.
+- [ ] Verify the school assignment requirements.
+- [ ] Run final tests and check Git status.
+- [ ] Commit and push to GitHub.
+
+Suggested commit: `docs: finalize Brul2 documentation`
+
+---
+
+## Implemented API Summary
+
+- `GET /api/v1/health`
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`
+- `GET /api/v1/reports`, `GET /api/v1/reports/{id}`
+- `POST /api/v1/reports` (JWT)
+- `PUT /api/v1/reports/{id}` (owner)
+- `DELETE /api/v1/reports/{id}` (owner or ADMIN)
+- `GET /api/v1/reports/{id}/votes`
+- `PUT /api/v1/reports/{id}/vote`, `GET /api/v1/reports/{id}/vote/me`, `DELETE /api/v1/reports/{id}/vote` (JWT)
+- `GET /api/v1/reports/{id}/participants`, `GET /api/v1/reports/{id}/participants/list`
+- `POST /api/v1/reports/{id}/participants`, `DELETE /api/v1/reports/{id}/participants/me` (JWT)
+
+Checkpoint 8 uses `HelpParticipationService` and `HelpParticipationRoutes`, not the original proposed `HelpService` / `HelpRoutes` names. Help request participation status is derived as OPEN, FULL or CLOSED, while stored report status remains OPEN, IN_PROGRESS or RESOLVED. The database enforces one active participation per report/user and cascading deletion.
+
+---
+
+## Development Workflow
+
+Follow these steps for every checkpoint:
+
+1. Discuss the functionality and relevant school concepts.
+2. Define test scenarios before implementation.
+3. Create or modify the required files.
+4. Run automated tests using `kotlin test`.
+5. Manually verify relevant API endpoints.
+6. Update the README and project documentation.
+7. Check Git status.
+8. Commit and push to GitHub.
+
+## GitHub Workflow
+
+```bash
+git status
+kotlin test
+git add .
+git commit -m "type: describe completed checkpoint"
+git push
+```
+
+Commit naming conventions:
+
+- `chore:` Project setup and configuration.
+- `feat:` New functionality.
+- `fix:` Bug fixes.
+- `test:` Tests and test improvements.
+- `refactor:` Code improvements without changing behavior.
+- `docs:` Documentation updates.
+
+Only commit a checkpoint when:
+- The project compiles.
+- Relevant tests pass.
+- Existing functionality still works.
+- No secrets or unnecessary generated files are staged.
+- Documentation is updated where needed.
+
+---
+
+## Architecture
+
+Brul2 uses a feature-based project structure.
+
+Each feature follows this flow:
+
+`Routes → Services → Repository Interfaces → Exposed Repositories → H2`
+
+Main packages:
+
+- `config` — Application configuration.
+- `common` — Shared technical functionality.
+- `database` — Database connection and initialization.
+- `security` — Shared authentication configuration.
+- `features/report` — Report management and domain models.
+- `features/user` — User management.
+- `features/auth` — Registration and login.
+- `features/vote` — Report voting.
+- `features/help` — Help request participation and capacity summaries.
+
+Features are added only when needed.
+
+---
+
+## Current Next Step
+
+**Checkpoint 10 — Testing & Quality Review.**
+
+1. Add validation to prevent reducing help request capacity below the current participant count.
+2. Confirm whether status transitions apply to all reports or only help requests.
+3. Manually test the registered endpoints in the running application.
+4. Record the exact final test count, then proceed to Checkpoint 11 documentation.
+
+**Progress:** Checkpoints 1–9 are implemented. The user confirmed all tests passing after Checkpoint 9. The expected total is **263 tests** (239 after Checkpoint 7 + 18 in Checkpoint 8 + 6 in Checkpoint 9), but the exact count was not explicitly confirmed. Git commits, README updates and manual API verification have not been independently confirmed.
