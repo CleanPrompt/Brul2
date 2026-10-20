@@ -1,3 +1,4 @@
+
 // src/nl/brul/api/plugins/Routing.kt
 package nl.brul.api.plugins
 
@@ -11,6 +12,9 @@ import kotlinx.serialization.Serializable
 import nl.brul.api.config.AppConfig
 import nl.brul.api.features.auth.routes.authRoutes
 import nl.brul.api.features.auth.service.AuthService
+import nl.brul.api.features.help.repository.ExposedHelpParticipationRepository
+import nl.brul.api.features.help.routes.helpParticipationRoutes
+import nl.brul.api.features.help.service.HelpParticipationService
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.routes.reportRoutes
 import nl.brul.api.features.report.service.ReportService
@@ -35,6 +39,8 @@ fun Application.configureRouting(
 ) {
     val reportRepository = ExposedReportRepository(database)
     val voteRepository = ExposedVoteRepository(database)
+    val helpParticipationRepository =
+        ExposedHelpParticipationRepository(database)
 
     val reportService = ReportService(
         repository = reportRepository,
@@ -43,6 +49,11 @@ fun Application.configureRouting(
 
     val voteService = VoteService(
         voteRepository = voteRepository,
+        reportRepository = reportRepository
+    )
+
+    val helpParticipationService = HelpParticipationService(
+        participationRepository = helpParticipationRepository,
         reportRepository = reportRepository
     )
 
@@ -73,6 +84,8 @@ fun Application.configureRouting(
                 voteService = voteService,
                 reportService = reportService
             )
+
+            helpParticipationRoutes(helpParticipationService)
 
             authRoutes(
                 authService = authService,

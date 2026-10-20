@@ -1,6 +1,7 @@
 // src/nl/brul/api/database/DatabaseFactory.kt
 package nl.brul.api.database
 
+import nl.brul.api.features.help.repository.HelpParticipationsTable
 import nl.brul.api.features.vote.repository.VotesTable
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
@@ -31,7 +32,8 @@ object DatabaseFactory {
             SchemaUtils.create(
                 ReportsTable,
                 UsersTable,
-                VotesTable
+                VotesTable,
+                HelpParticipationsTable
             )
         }
 

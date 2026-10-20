@@ -11,6 +11,9 @@ import io.ktor.server.response.respond
 import nl.brul.api.common.error.ApiError
 import nl.brul.api.features.auth.service.EmailAlreadyRegisteredException
 import nl.brul.api.features.auth.service.InvalidCredentialsException
+import nl.brul.api.features.help.service.HelpRequestNotFoundException
+import nl.brul.api.features.help.service.HelpParticipationForbiddenException
+import nl.brul.api.features.help.service.HelpParticipationConflictException
 
 fun Application.configureErrorHandling() {
 
@@ -41,6 +44,27 @@ fun Application.configureErrorHandling() {
             call.respond(
                 HttpStatusCode.BadRequest,
                 ApiError("Invalid request.")
+            )
+        }
+
+        exception<HelpRequestNotFoundException> { call, _ ->
+            call.respond(
+                HttpStatusCode.NotFound,
+                ApiError("Help request not found.")
+            )
+        }
+
+        exception<HelpParticipationForbiddenException> { call, _ ->
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ApiError("You cannot join your own help request.")
+            )
+        }
+
+        exception<HelpParticipationConflictException> { call, cause ->
+            call.respond(
+                HttpStatusCode.Conflict,
+                ApiError(cause.message ?: "Participation conflict.")
             )
         }
 
