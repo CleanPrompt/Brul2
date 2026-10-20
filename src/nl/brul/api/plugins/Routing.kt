@@ -44,7 +44,8 @@ fun Application.configureRouting(
 
     val reportService = ReportService(
         repository = reportRepository,
-        voteRepository = voteRepository
+        voteRepository = voteRepository,
+        helpParticipationRepository = helpParticipationRepository
     )
 
     val voteService = VoteService(

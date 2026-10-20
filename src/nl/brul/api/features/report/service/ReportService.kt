@@ -2,6 +2,8 @@
 // src/nl/brul/api/features/report/service/ReportService.kt
 package nl.brul.api.features.report.service
 
+import nl.brul.api.features.help.repository.HelpParticipationRepository
+import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.repository.ReportRepository
@@ -10,7 +12,8 @@ import nl.brul.api.features.vote.repository.VoteRepository
 
 class ReportService(
     private val repository: ReportRepository,
-    private val voteRepository: VoteRepository? = null
+    private val voteRepository: VoteRepository? = null,
+    private val helpParticipationRepository: HelpParticipationRepository? = null
 ) {
 
     fun create(report: NewReport): Report =
@@ -35,6 +38,16 @@ class ReportService(
             current = existing.status,
             next = report.status
         )
+
+        if (report is HelpRequest) {
+            val participantCount = helpParticipationRepository
+                ?.countByHelpRequest(report.id)
+                ?: 0
+
+            require(report.volunteersNeeded >= participantCount) {
+                "Volunteers needed cannot be lower than the current participant count."
+            }
+        }
 
         return repository.update(report)
     }
