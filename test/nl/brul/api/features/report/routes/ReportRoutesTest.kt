@@ -1,3 +1,4 @@
+
 // test/nl/brul/api/features/report/routes/ReportRoutesTest.kt
 package nl.brul.api.features.report.routes
 
@@ -27,6 +28,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import nl.brul.api.features.help.model.HelpParticipation
+import nl.brul.api.features.help.repository.HelpParticipationRepository
 import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.UpdateReportRequest
 import nl.brul.api.features.report.model.HelpRequest
@@ -118,6 +121,37 @@ class ReportRoutesTest {
             reports.remove(id) != null
     }
 
+    private class FakeParticipationRepository(
+        private val participantCount: Int
+    ) : HelpParticipationRepository {
+
+        override fun findByHelpRequest(
+            helpRequestId: Long
+        ): List<HelpParticipation> =
+            emptyList()
+
+        override fun findByHelpRequestAndUser(
+            helpRequestId: Long,
+            userId: Long
+        ): HelpParticipation? = null
+
+        override fun add(
+            helpRequestId: Long,
+            userId: Long
+        ): HelpParticipation {
+            error("Not needed for this test.")
+        }
+
+        override fun remove(
+            helpRequestId: Long,
+            userId: Long
+        ): Boolean = false
+
+        override fun countByHelpRequest(
+            helpRequestId: Long
+        ): Int = participantCount
+    }
+
     private fun createRequest() = CreateReportRequest(
         type = "SAFETY",
         title = "Unsafe crossing",
@@ -128,7 +162,33 @@ class ReportRoutesTest {
         urgent = true
     )
 
+    private fun helpRequest(
+        volunteersNeeded: Int
+    ) = CreateReportRequest(
+        type = "HELP_REQUEST",
+        title = "Help with groceries",
+        description = "I need help carrying groceries.",
+        category = "GROCERIES",
+        latitude = 52.0705,
+        longitude = 4.3007,
+        volunteersNeeded = volunteersNeeded
+    )
+
+    private fun updateHelpRequest(
+        volunteersNeeded: Int
+    ) = UpdateReportRequest(
+        type = "HELP_REQUEST",
+        title = "Help with groceries",
+        description = "I need help carrying groceries.",
+        category = "GROCERIES",
+        latitude = 52.0705,
+        longitude = 4.3007,
+        status = "OPEN",
+        volunteersNeeded = volunteersNeeded
+    )
+
     private fun testReports(
+        participantCount: Int = 0,
         block: suspend ApplicationTestBuilder.() -> Unit
     ) = testApplication {
         application {
@@ -148,7 +208,10 @@ class ReportRoutesTest {
                     )
 
                     validate { credential ->
-                        if (credential.payload.subject?.toLongOrNull() != null) {
+                        if (
+                            credential.payload.subject
+                                ?.toLongOrNull() != null
+                        ) {
                             JWTPrincipal(credential.payload)
                         } else {
                             null
@@ -162,7 +225,13 @@ class ReportRoutesTest {
             routing {
                 route("/api/v1") {
                     reportRoutes(
-                        ReportService(FakeReportRepository())
+                        ReportService(
+                            repository = FakeReportRepository(),
+                            helpParticipationRepository =
+                                FakeParticipationRepository(
+                                    participantCount
+                                )
+                        )
                     )
                 }
             }
@@ -383,4 +452,84 @@ class ReportRoutesTest {
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
+
+    @Test
+    fun `cannot reduce help request capacity below participants via API`() =
+        testReports(participantCount = 3) {
+
+            val created = client.post("/api/v1/reports") {
+                bearerAuth(token())
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Json.encodeToString(
+                        CreateReportRequest.serializer(),
+                        helpRequest(volunteersNeeded = 5)
+                    )
+                )
+            }
+
+            assertEquals(HttpStatusCode.Created, created.status)
+
+            val updated = client.put("/api/v1/reports/1") {
+                bearerAuth(token())
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Json.encodeToString(
+                        UpdateReportRequest.serializer(),
+                        updateHelpRequest(volunteersNeeded = 2)
+                    )
+                )
+            }
+
+            assertEquals(HttpStatusCode.BadRequest, updated.status)
+
+            val retrieved = client.get("/api/v1/reports/1")
+
+            assertEquals(HttpStatusCode.OK, retrieved.status)
+            assertTrue(
+                retrieved.bodyAsText().contains(
+                    "\"volunteersNeeded\":5"
+                )
+            )
+        }
+
+    @Test
+    fun `can update help request capacity when enough places remain`() =
+        testReports(participantCount = 3) {
+
+            val created = client.post("/api/v1/reports") {
+                bearerAuth(token())
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Json.encodeToString(
+                        CreateReportRequest.serializer(),
+                        helpRequest(volunteersNeeded = 5)
+                    )
+                )
+            }
+
+            assertEquals(HttpStatusCode.Created, created.status)
+
+            val updated = client.put("/api/v1/reports/1") {
+                bearerAuth(token())
+                contentType(ContentType.Application.Json)
+                setBody(
+                    Json.encodeToString(
+                        UpdateReportRequest.serializer(),
+                        updateHelpRequest(volunteersNeeded = 3)
+                    )
+                )
+            }
+
+            assertEquals(HttpStatusCode.OK, updated.status)
+
+            val retrieved = client.get("/api/v1/reports/1")
+
+            assertEquals(HttpStatusCode.OK, retrieved.status)
+            assertTrue(
+                retrieved.bodyAsText().contains(
+                    "\"volunteersNeeded\":3"
+                )
+            )
+        }
 }
