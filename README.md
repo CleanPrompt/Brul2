@@ -1,15 +1,14 @@
-
 # Brul2
 
 Brul2 is a REST API built with **Kotlin, Ktor, JetBrains Amper, JetBrains Exposed, and H2**.
 
-The project allows residents to report neighborhood safety issues, report nuisance, and request help from other residents.
+The application allows residents to report neighborhood safety issues, report nuisance, and request help from other residents.
 
-We develop Brul2 in small, testable checkpoints. We use object-oriented programming (OOP), functional programming (FP), database persistence, authentication, and automated testing to build a maintainable application that meets the school assignment requirements.
+Brul2 is developed incrementally through small, testable checkpoints. The project demonstrates object-oriented programming (OOP), functional programming (FP), database persistence, authentication, authorization, and automated testing.
 
-**Current progress:** Checkpoint 6.4B completed — **156 tests passed**.
+**Current progress:** Checkpoint 6.5D completed — **168 tests passed**.
 
-**Next checkpoint:** 6.5 — Authorization and Report Ownership.
+**Next checkpoint:** 6.6 — Authentication and Authorization Integration Tests and Security Review.
 
 ---
 
@@ -44,8 +43,8 @@ Brul2/
 │       │   ├── Security.kt
 │       │   └── Serialization.kt
 │       ├── security/
-│       │   ├── PasswordHasher.kt
 │       │   ├── BCryptPasswordHasher.kt
+│       │   ├── PasswordHasher.kt
 │       │   ├── JwtConfig.kt
 │       │   └── JwtService.kt
 │       └── features/
@@ -62,7 +61,8 @@ Brul2/
 │           └── user/
 │               ├── model/
 │               │   ├── User.kt
-│               │   └── NewUser.kt
+│               │   ├── NewUser.kt
+│               │   └── UserRole.kt
 │               └── repository/
 │                   ├── UserRepository.kt
 │                   ├── ExposedUserRepository.kt
@@ -83,14 +83,14 @@ Brul2/
 
 | Package | Responsibility |
 |---|---|
-| `plugins/` | Configure Ktor routing, JSON serialization, error handling, and authentication |
+| `plugins/` | Configure Ktor routing, JSON serialization, error handling, and JWT authentication |
 | `security/` | Implement password hashing, JWT configuration, and token generation and verification |
-| `features/auth/` | Handle user registration, login, authentication DTOs, and authenticated profile requests |
-| `features/report/` | Handle report models, persistence, business logic, and HTTP endpoints |
-| `features/user/` | Handle user models and database persistence |
+| `features/auth/` | Handle registration, login, authentication DTOs, and authenticated profile requests |
+| `features/report/` | Handle report models, persistence, business logic, ownership, authorization, and HTTP endpoints |
+| `features/user/` | Handle user models, roles, and database persistence |
 | `database/` | Initialize the H2 database and its tables |
 | `config/` | Load application configuration |
-| `common/` | Provide shared application components |
+| `common/error/` | Provide shared API error response models |
 
 ---
 
@@ -169,13 +169,11 @@ A `.env.example` file may be committed to document the required configuration va
 
 Open a terminal in the project root and run:
 
-```bash
-kotlin run
+```powershell
+kotlin run --module Brul2 --jvm-args -Dio.ktor.development=true
 ```
 
-The JWT environment variables are loaded from `.env`, so manually executing `set JWT_SECRET=...` is not required for local development.
-
-Ktor starts the API using the application configuration in:
+The application uses the configuration in:
 
 ```text
 resources/application.yaml
@@ -191,37 +189,35 @@ http://localhost:8080
 
 Run the complete test suite:
 
-```bash
+```powershell
 kotlin test
 ```
 
-Latest verified result:
+Latest developer-confirmed result:
 
 ```text
-Tests: 156 passed
+168 tests passed
 ```
 
 ---
 
 ## Current API Endpoints
 
-Brul2 currently exposes nine REST API routes.
+Brul2 exposes nine REST API routes.
 
 | Method | Endpoint | Description | Authentication |
 |---|---|---|---|
 | GET | `/api/v1/health` | Check whether the API is running | Public |
 | GET | `/api/v1/reports` | Retrieve reports with optional search, filtering, and sorting | Public |
 | GET | `/api/v1/reports/{id}` | Retrieve a report by ID | Public |
-| POST | `/api/v1/reports` | Create a report | Public |
-| PUT | `/api/v1/reports/{id}` | Update a report | Public |
-| DELETE | `/api/v1/reports/{id}` | Delete a report | Public |
+| POST | `/api/v1/reports` | Create a report | Bearer JWT |
+| PUT | `/api/v1/reports/{id}` | Update a report | Bearer JWT; owner only |
+| DELETE | `/api/v1/reports/{id}` | Delete a report | Bearer JWT; owner or ADMIN |
 | POST | `/api/v1/auth/register` | Register a new user | Public |
 | POST | `/api/v1/auth/login` | Log in and receive a JWT access token | Public |
 | GET | `/api/v1/auth/me` | Retrieve the authenticated user's profile | Bearer JWT |
 
 All endpoints use the `/api/v1` prefix.
-
-Report authorization and ownership restrictions are planned for Checkpoint 6.5. Report endpoints are not yet protected by JWT authentication.
 
 ### Health Check
 
@@ -246,19 +242,19 @@ The service name comes from `resources/application.yaml`.
 
 ### Retrieve Reports
 
-Request:
+Retrieve all reports:
 
 ```http
 GET http://localhost:8080/api/v1/reports
 ```
-
-The endpoint returns stored reports as JSON.
 
 Retrieve a specific report:
 
 ```http
 GET http://localhost:8080/api/v1/reports/1
 ```
+
+Both endpoints are public.
 
 The API returns HTTP 404 when the requested report does not exist.
 
@@ -275,17 +271,17 @@ Implemented functionality includes:
 - Combine search and filter criteria.
 - Sort reports by ID, creation time, view count, or distance.
 
-Supported sorting options include:
+Supported sorting options:
 
 | Sort Order | Description |
 |---|---|
-| `ID_ASC` | Sort by ID in ascending order |
-| `ID_DESC` | Sort by ID in descending order |
+| `ID_ASC` | Sort reports by ID in ascending order |
+| `ID_DESC` | Sort reports by ID in descending order |
 | `NEWEST` | Show the newest reports first |
 | `MOST_VIEWED` | Show reports with the highest view count first |
 | `NEAREST` | Sort reports by distance from a supplied location |
 
-Example requests:
+Examples:
 
 ```http
 GET http://localhost:8080/api/v1/reports?sort=NEWEST
@@ -301,6 +297,8 @@ GET http://localhost:8080/api/v1/reports?sort=ID_DESC
 
 Distance-based sorting requires valid location coordinates.
 
+The `MOST_LIKED` sorting option is planned for Checkpoint 7, after voting functionality is implemented.
+
 ### Create, Update, and Delete Reports
 
 The API supports the complete report CRUD lifecycle.
@@ -309,25 +307,58 @@ Create a report:
 
 ```http
 POST http://localhost:8080/api/v1/reports
+Authorization: Bearer <JWT_ACCESS_TOKEN>
 Content-Type: application/json
 ```
+
+The authenticated user automatically becomes the owner of the new report.
 
 Update a report:
 
 ```http
 PUT http://localhost:8080/api/v1/reports/1
+Authorization: Bearer <JWT_ACCESS_TOKEN>
 Content-Type: application/json
 ```
+
+Only the report owner can update a report.
 
 Delete a report:
 
 ```http
 DELETE http://localhost:8080/api/v1/reports/1
+Authorization: Bearer <JWT_ACCESS_TOKEN>
 ```
+
+The report owner or a user with the `ADMIN` role can delete a report.
 
 We use request and response DTOs to separate the public HTTP API from internal domain models.
 
-### User Registration
+### Report Authorization Rules
+
+| Scenario | Expected Result |
+|---|---|
+| Anonymous user lists reports | HTTP 200 |
+| Anonymous user retrieves a report | HTTP 200 |
+| Anonymous user creates a report | HTTP 401 |
+| Anonymous user updates a report | HTTP 401 |
+| Anonymous user deletes a report | HTTP 401 |
+| Authenticated user creates a report | HTTP 201 |
+| Report owner updates their report | Success |
+| Report owner deletes their report | Success |
+| Different user updates a report | HTTP 403 |
+| Different user deletes a report | HTTP 403 |
+| ADMIN deletes another user's report | Success |
+| ADMIN updates another user's report | HTTP 403 |
+| Invalid or expired token accesses a protected route | HTTP 401 |
+
+The application uses the authenticated user ID from the JWT subject to identify report ownership.
+
+Clients cannot select or change report ownership directly.
+
+---
+
+## User Registration
 
 Register a new user:
 
@@ -344,8 +375,6 @@ Content-Type: application/json
 
 A successful registration returns HTTP 201 and the user's public account information.
 
-The response does not include the user's password or password hash.
-
 Registration includes:
 
 - Input validation.
@@ -353,8 +382,15 @@ Registration includes:
 - Duplicate email detection.
 - BCrypt password hashing.
 - Database persistence.
+- Automatic assignment of the `USER` role.
 
-### User Login
+Public registration does not allow users to assign themselves the `ADMIN` role.
+
+The response does not include the user's password or password hash.
+
+---
+
+## User Login
 
 Log in with an existing account:
 
@@ -383,11 +419,15 @@ Example response:
 }
 ```
 
-The `accessToken` is signed using the configured JWT secret.
+The access token is signed using the configured JWT secret.
+
+The token contains the authenticated user's ID and role.
 
 The response does not expose the password hash.
 
-### Authenticated User Profile
+---
+
+## Authenticated User Profile
 
 Retrieve the currently authenticated user's profile:
 
@@ -396,7 +436,7 @@ GET http://localhost:8080/api/v1/auth/me
 Authorization: Bearer <JWT_ACCESS_TOKEN>
 ```
 
-A valid JWT token identifies the user.
+The JWT identifies the authenticated user.
 
 The endpoint retrieves the user from the database and returns public profile information.
 
@@ -473,14 +513,14 @@ For protected endpoints, Ktor Authentication validates the bearer token before a
 
 Routes receive HTTP requests, read request parameters, and return HTTP responses.
 
-Feature-specific endpoints are placed inside their feature packages.
-
-Examples:
+Feature-specific endpoints are placed inside their feature packages:
 
 ```text
 features/report/routes/ReportRoutes.kt
 features/auth/routes/AuthRoutes.kt
 ```
+
+Report routes also enforce the current ownership and ADMIN deletion rules.
 
 ### Services
 
@@ -501,23 +541,23 @@ This allows business logic to be tested independently from database operations a
 
 ### Repositories
 
-Repository interfaces define the available persistence operations.
+Repository interfaces define persistence operations.
 
 Exposed repository implementations execute those operations against H2.
 
-For reports, we use:
+For reports:
 
 - `ReportRepository` — Repository interface.
 - `ExposedReportRepository` — Database implementation.
 - `ReportsTable` — Exposed table definition.
 - `NewReport` — Input data for creating a report.
 
-For users, we use:
+For users:
 
 - `UserRepository` — Repository interface.
 - `ExposedUserRepository` — Database implementation.
 - `UsersTable` — Exposed table definition.
-- `NewUser` — Input data for creating a user, located in `features/user/model/`.
+- `NewUser` — Input data for creating a user.
 
 ### Dependency Injection
 
@@ -538,8 +578,6 @@ We do not currently use a dependency injection framework.
 ---
 
 ## Ktor Plugin Configuration
-
-We organize Ktor configuration inside the `plugins/` package.
 
 ### Serialization
 
@@ -576,6 +614,8 @@ JWT authentication validates:
 
 Protected routes use Ktor's `authenticate("auth-jwt")` block.
 
+Report authorization additionally uses the authenticated user ID and the token's role claim.
+
 ### Routing
 
 `Routing.kt` registers:
@@ -599,8 +639,6 @@ It also connects repositories, services, password hashing, and JWT functionality
 7. Initializing the database.
 8. Registering API routes.
 
-This keeps application startup separate from plugin implementation details.
-
 ---
 
 ## Report Domain Models
@@ -613,7 +651,7 @@ The report domain uses an abstract `Report` class and three subclasses.
 | `NuisanceReport` | Report neighborhood nuisance | — |
 | `HelpRequest` | Request help from other residents | `volunteersNeeded` |
 
-All reports share common properties, including:
+All reports share common properties:
 
 - ID.
 - Title.
@@ -624,6 +662,9 @@ All reports share common properties, including:
 - Status.
 - Creation timestamp (`createdAt`).
 - View count (`viewCount`).
+- Owner ID (`ownerId`).
+
+The `ownerId` associates a report with its creator.
 
 ### Report Categories
 
@@ -683,10 +724,11 @@ Its data includes:
 - Report-specific fields such as urgency and required volunteers.
 - Creation timestamp.
 - View count.
+- Owner ID.
 
 The repository converts database rows into the correct report subclasses.
 
-Report ownership is planned for Checkpoint 6.5.
+The report owner is assigned during authenticated report creation and preserved during updates.
 
 ### Users Table
 
@@ -699,10 +741,30 @@ The table contains:
 - `email`
 - `passwordHash`
 - `createdAt`
+- `role`
+
+The `role` column stores the user's `USER` or `ADMIN` role.
+
+New users receive `USER` by default.
 
 The email column has a unique constraint.
 
 `ExposedUserRepository` normalizes email addresses to lowercase and supports creating users and retrieving them by ID or email.
+
+### Existing Database Migration
+
+If an existing H2 database was created before user roles were introduced, its `users` table may not contain the `role` column.
+
+The following SQL statement adds the column while preserving existing users:
+
+```sql
+ALTER TABLE users
+ADD COLUMN role VARCHAR(10) DEFAULT 'USER' NOT NULL;
+```
+
+This migration should only be executed if the column does not already exist.
+
+Do not delete the persistent development database when existing data needs to be preserved.
 
 ### Database Testing
 
@@ -714,8 +776,6 @@ This allows tests to verify real SQL behavior without modifying the application'
 
 ## User Domain and Password Security
 
-Checkpoint 6.1 introduced the user domain and database persistence.
-
 The `User` model stores:
 
 - User ID.
@@ -723,24 +783,19 @@ The `User` model stores:
 - Email.
 - Password hash.
 - Creation timestamp.
+- Role (`USER` or `ADMIN`).
 
-`NewUser` represents the data required to create a user and is located in `features/user/model/`.
+`NewUser` represents the data required to create a user.
 
-The user repository provides operations to:
+The user repository supports:
 
-- Create a user.
-- Find a user by ID.
-- Find a user by email.
+- Creating a user.
+- Finding a user by ID.
+- Finding a user by email.
 
 ### Password Hashing
 
-Checkpoint 6.2 introduced password hashing through a dedicated `security/` package.
-
-We use two components.
-
-**`PasswordHasher`**
-
-Defines the password hashing contract:
+`PasswordHasher` defines the password hashing contract:
 
 ```kotlin
 interface PasswordHasher {
@@ -749,9 +804,7 @@ interface PasswordHasher {
 }
 ```
 
-**`BCryptPasswordHasher`**
-
-Implements the contract with jBCrypt.
+`BCryptPasswordHasher` implements the contract with jBCrypt.
 
 The implementation:
 
@@ -766,8 +819,6 @@ We never store plaintext passwords.
 
 ### Registration and Login
 
-Checkpoint 6.3 introduced `AuthService`, authentication DTOs, HTTP routes, and integration tests.
-
 `AuthService` handles:
 
 - Registering users.
@@ -776,13 +827,11 @@ Checkpoint 6.3 introduced `AuthService`, authentication DTOs, HTTP routes, and i
 - Hashing passwords before persistence.
 - Verifying credentials during login.
 
-Registration and login are available through the public authentication endpoints.
+Registration and login are available through public authentication endpoints.
 
 ---
 
-## JWT Authentication
-
-Checkpoint 6.4 introduced JWT-based authentication.
+## JWT Authentication and Authorization
 
 ### JwtConfig
 
@@ -801,36 +850,55 @@ It validates configuration values, including a minimum secret length of 32 UTF-8
 
 Generated tokens contain:
 
-- Issuer (`iss`).
-- Audience (`aud`).
-- User ID as subject (`sub`).
-- Issue time (`iat`).
-- Expiration time (`exp`).
+| Claim | Purpose |
+|---|---|
+| `iss` | Token issuer |
+| `aud` | Intended audience |
+| `sub` | Authenticated user ID |
+| `iat` | Token issue time |
+| `exp` | Token expiration time |
+| `role` | Authenticated user's role (`USER` or `ADMIN`) |
 
 Token verification rejects invalid signatures, invalid claims, expired tokens, and invalid user IDs.
 
+The role used during login comes from the stored user account, not from the login request.
+
 ### Ktor JWT Authentication
 
-Ktor Authentication protects the `/api/v1/auth/me` endpoint.
+Ktor Authentication protects:
 
-The route uses the JWT subject to identify the authenticated user.
+- `GET /api/v1/auth/me`
+- `POST /api/v1/reports`
+- `PUT /api/v1/reports/{id}`
+- `DELETE /api/v1/reports/{id}`
 
-The database is queried to ensure that the user still exists.
+The JWT subject identifies the authenticated user.
 
-### JWT Integration Tests
+Report routes use that identity to enforce ownership.
 
-Checkpoint 6.4B added integration tests for:
+The JWT role claim allows ADMIN users to delete reports belonging to other users.
 
-- Successful login returning a bearer token.
-- Accessing `/auth/me` with a valid token.
-- Rejecting requests without a token.
-- Rejecting invalid tokens.
-- Rejecting valid tokens referencing nonexistent users.
-- Keeping registration publicly accessible.
+ADMIN users cannot update reports belonging to other users.
 
-JWT authentication is implemented and tested.
+### Current Security Scope
 
-Authorization rules for report ownership are not implemented yet.
+Implemented:
+
+- Signed JWT access tokens.
+- JWT validation.
+- Protected report mutations.
+- Report ownership.
+- USER and ADMIN roles.
+- Owner-only updates.
+- Owner-or-ADMIN deletion.
+
+Still to verify in Checkpoint 6.6:
+
+- Complete registration → login → report creation flow.
+- Complete real ADMIN login → delete another user's report flow.
+- Missing, invalid, and expired token scenarios across protected routes.
+- Consistent authorization behavior across the API.
+- Role changes and existing-token behavior.
 
 ---
 
@@ -838,7 +906,7 @@ Authorization rules for report ownership are not implemented yet.
 
 We use automated tests throughout development.
 
-Our test suite includes:
+The test suite includes:
 
 - Domain unit tests.
 - Service unit tests.
@@ -848,6 +916,7 @@ Our test suite includes:
 - Password hashing tests.
 - JWT unit tests.
 - Authentication integration tests.
+- Report ownership and authorization tests.
 
 ### Verified Test Progress
 
@@ -864,12 +933,17 @@ Our test suite includes:
 | 6.2 — Password Hashing | 105 |
 | 6.3 — Registration and Login | Completed |
 | 6.4A — JWT Configuration and Service | 150 |
-| 6.4B — JWT Authentication and Integration Tests | **156** |
+| 6.4B — JWT Authentication and Integration Tests | 156 |
+| 6.5B — JWT-Protected Report Operations | 162 |
+| 6.5C — Ownership Authorization | 166 |
+| 6.5D — User Roles and JWT Role Claim | **168** |
 
-The latest verified result is:
+Test counts are cumulative milestones.
+
+Latest developer-confirmed result:
 
 ```text
-Tests: 156 passed
+168 tests passed
 ```
 
 ### Current Test Coverage
@@ -895,8 +969,11 @@ The tests cover:
 - JWT generation and verification.
 - Bearer token authentication.
 - Protected user profile access.
-- Rejection of missing or invalid tokens.
-- Rejection of tokens referencing nonexistent users.
+- Report ownership persistence.
+- Protected report creation, update, and deletion.
+- Owner-only report updates.
+- Owner-or-ADMIN report deletion.
+- JWT role claims.
 
 ### Test Strategy
 
@@ -908,7 +985,7 @@ We use Ktor Test Host to verify HTTP behavior without launching a separate serve
 
 Run all tests with:
 
-```bash
+```powershell
 kotlin test
 ```
 
@@ -933,18 +1010,21 @@ We only mark checkpoints as complete after the relevant implementation compiles 
 - [x] Checkpoint 5.5 — Error Handling and HTTP Integration Tests
 - [x] Checkpoint 6.1 — User Domain and Database
 - [x] Checkpoint 6.2 — Password Hashing
-- [x] Checkpoint 6.3A — AuthService: Registration and Login Logic
+- [x] Checkpoint 6.3A — AuthService
 - [x] Checkpoint 6.3B — Authentication DTOs and HTTP Routes
 - [x] Checkpoint 6.3C — Authentication Integration Tests
 - [x] Checkpoint 6.4A — JWT Configuration and Token Service
 - [x] Checkpoint 6.4B — Ktor JWT Authentication and Integration Tests
+- [x] Checkpoint 6.5A — Report Ownership Model and Persistence
+- [x] Checkpoint 6.5B — JWT-Protected Report Operations
+- [x] Checkpoint 6.5C — Ownership Authorization
+- [x] Checkpoint 6.5D — User Roles and JWT Role Claims
 - [x] Architecture Refactor — Ktor Plugins and Security Packages
 - [x] Local Environment Configuration — dotenv-kotlin
 
 ### Next
 
-- [ ] Checkpoint 6.5 — Authorization and Report Ownership
-- [ ] Checkpoint 6.6 — Authentication and Authorization Integration Tests
+- [ ] Checkpoint 6.6 — Authentication and Authorization Integration Tests and Security Review
 
 ### Planned
 
@@ -957,18 +1037,19 @@ We only mark checkpoints as complete after the relevant implementation compiles 
 
 ## Planned Features
 
-We will implement the remaining functionality incrementally.
+### Authentication and Authorization Integration Tests
 
-### Authorization and Report Ownership
+Checkpoint 6.6 will verify:
 
-Checkpoint 6.5 will focus on:
-
-- Associating reports with their creators.
-- Protecting report creation, update, and deletion endpoints.
-- Extracting authenticated user IDs from JWT tokens.
-- Allowing report owners to modify their own reports.
-- Preventing users from modifying or deleting reports owned by others.
-- Returning appropriate HTTP responses for unauthorized and forbidden operations.
+- Registration → login → authenticated report creation.
+- Correct owner assignment.
+- Owner-only updates.
+- Owner-or-ADMIN deletion.
+- Real ADMIN login and deletion using a generated JWT.
+- Missing, invalid, and expired token handling.
+- Consistent HTTP 401 and 403 responses.
+- Protection against unauthorized ownership changes.
+- Security of password hashes and JWT configuration.
 
 ### Voting
 
@@ -979,6 +1060,7 @@ We plan to support:
 - Preventing duplicate active votes.
 - Preventing users from voting on their own reports.
 - Calculating vote totals.
+- Sorting by `MOST_LIKED`.
 
 ### Help Participation
 
@@ -1014,7 +1096,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan.
 
 The `docs/uml/` directory contains the report domain diagram.
 
-We will expand the documentation as we implement additional features.
+We will expand and update the documentation as the project develops.
 
 ---
 
@@ -1039,10 +1121,8 @@ We only mark a checkpoint as complete after the implementation compiles and the 
 
 ## Current Progress
 
-**Checkpoint 6.4B completed — 156 tests passed.**
+**Checkpoint 6.5D completed — 168 tests passed.**
 
-We have implemented the report REST API, user persistence, BCrypt password hashing, registration and login, JWT token generation and verification, Ktor JWT authentication, and a protected user profile endpoint.
+Brul2 now supports report CRUD operations, searching and sorting, H2 persistence, user registration, BCrypt password hashing, JWT authentication, report ownership, and USER/ADMIN authorization.
 
-Local JWT configuration is loaded through `dotenv-kotlin`.
-
-**Next step: Checkpoint 6.5 — Implement authorization and report ownership.**
+**Next step: Checkpoint 6.6 — Authentication and Authorization Integration Tests and Security Review.**
