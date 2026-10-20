@@ -1,0 +1,100 @@
+' docs/uml/03-package-diagram.puml
+
+@startuml
+
+title Brul2 - 03. Package Diagram
+
+' Visual style
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam defaultFontColor #243247
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 2
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+top to bottom direction
+
+package "plugins" as Plugins #E2E8F0 {
+    [Routing] as Routing
+}
+
+package "features" as Features {
+
+    package "auth" as Auth #DBEAFE {
+        [AuthRoutes] as AuthRoutes
+        [AuthService] as AuthService
+    }
+
+    package "report" as Report #D1FAE5 {
+        [ReportRoutes] as ReportRoutes
+        [ReportService] as ReportService
+        [ReportRepository] as ReportRepository
+    }
+
+    package "vote" as Vote #FEF3C7 {
+        [VoteRoutes] as VoteRoutes
+        [VoteService] as VoteService
+        [VoteRepository] as VoteRepository
+    }
+
+    package "help" as Help #F3E8FF {
+        [HelpParticipationRoutes] as HelpRoutes
+        [HelpParticipationService] as HelpService
+        [HelpParticipationRepository] as HelpRepository
+    }
+
+    package "user" as User #FCE7F3 {
+        [UserRepository] as UserRepository
+    }
+}
+
+package "security" as Security #E2E8F0 {
+    [JwtService] as JwtService
+    [BCryptPasswordHasher] as PasswordHasher
+}
+
+package "database" as Database #E2E8F0 {
+    database "H2 Database" as H2
+}
+
+' Application wiring - neutral gray
+Routing -[#64748B,dashed]-> AuthRoutes
+Routing -[#64748B,dashed]-> ReportRoutes
+Routing -[#64748B,dashed]-> VoteRoutes
+Routing -[#64748B,dashed]-> HelpRoutes
+
+' Auth - blue
+AuthRoutes -[#2563EB,dashed]-> AuthService
+AuthRoutes -[#2563EB,dashed]-> JwtService
+AuthRoutes -[#2563EB,dashed]-> UserRepository
+AuthService -[#2563EB,dashed]-> UserRepository
+AuthService -[#2563EB,dashed]-> PasswordHasher
+
+' Report - green
+ReportRoutes -[#059669,dashed]-> ReportService
+ReportService -[#059669,dashed]-> ReportRepository
+ReportService -[#059669,dashed]-> VoteRepository
+ReportService -[#059669,dashed]-> HelpRepository
+
+' Vote - orange
+VoteRoutes -[#D97706,dashed]-> VoteService
+VoteRoutes -[#D97706,dashed]-> ReportService
+VoteService -[#D97706,dashed]-> VoteRepository
+VoteService -[#D97706,dashed]-> ReportRepository
+
+' Help - purple
+HelpRoutes -[#9333EA,dashed]-> HelpService
+HelpService -[#9333EA,dashed]-> HelpRepository
+HelpService -[#9333EA,dashed]-> ReportRepository
+
+' Persistence - neutral gray
+ReportRepository -[#64748B,dashed]-> H2
+VoteRepository -[#64748B,dashed]-> H2
+HelpRepository -[#64748B,dashed]-> H2
+UserRepository -[#64748B,dashed]-> H2
+
+@endum
