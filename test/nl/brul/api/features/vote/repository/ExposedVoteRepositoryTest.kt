@@ -1,6 +1,11 @@
 // test/nl/brul/api/features/vote/repository/ExposedVoteRepositoryTest.kt
 package nl.brul.api.features.vote.repository
 
+import nl.brul.api.features.report.dto.CreateReportRequest
+import nl.brul.api.features.report.dto.toNewReport
+import nl.brul.api.features.report.repository.ExposedReportRepository
+import nl.brul.api.features.report.repository.ReportsTable
+
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +34,27 @@ class ExposedVoteRepositoryTest {
         )
 
         transaction(database) {
-            SchemaUtils.create(VotesTable)
+            SchemaUtils.create(
+                ReportsTable,
+                VotesTable
+            )
+        }
+
+        val reportRepository = ExposedReportRepository(database)
+
+        // Create three reports for the existing repository tests.
+        repeat(3) { index ->
+            reportRepository.create(
+                CreateReportRequest(
+                    type = "SAFETY",
+                    title = "Test report ${index + 1}",
+                    description = "Test report for voting",
+                    category = "TRAFFIC_SAFETY",
+                    latitude = 52.0705,
+                    longitude = 4.3007,
+                    urgent = false
+                ).toNewReport().copy(ownerId = 1L)
+            )
         }
 
         val repository = ExposedVoteRepository(database)
@@ -38,7 +63,10 @@ class ExposedVoteRepositoryTest {
             block(repository)
         } finally {
             transaction(database) {
-                SchemaUtils.drop(VotesTable)
+                SchemaUtils.drop(
+                    VotesTable,
+                    ReportsTable
+                )
             }
         }
     }
