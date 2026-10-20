@@ -1,5 +1,5 @@
-// src/nl/brul/api/features/auth/security/PasswordHasher.kt
-package nl.brul.api.features.auth.security
+// src/nl/brul/api/security/PasswordHasher.kt
+package nl.brul.api.security
 
 interface PasswordHasher {
 

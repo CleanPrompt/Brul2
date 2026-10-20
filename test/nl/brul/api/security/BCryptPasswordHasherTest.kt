@@ -1,5 +1,5 @@
-// test/nl/brul/api/features/auth/security/BCryptPasswordHasherTest.kt
-package nl.brul.api.features.auth.security
+// test/nl/brul/api/security/BCryptPasswordHasherTest.kt
+package nl.brul.api.security
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
