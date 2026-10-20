@@ -1,6 +1,9 @@
 // test/nl/brul/api/features/report/routes/ReportRoutesTest.kt
 package nl.brul.api.features.report.routes
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -12,6 +15,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.jwt.JWTPrincipal
+import io.ktor.server.auth.jwt.jwt
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
@@ -21,19 +27,30 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
-import nl.brul.api.plugins.configureErrorHandling
 import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.UpdateReportRequest
 import nl.brul.api.features.report.model.HelpRequest
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
-import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
 import nl.brul.api.features.report.service.ReportService
+import nl.brul.api.plugins.configureErrorHandling
 
 class ReportRoutesTest {
+
+    private val jwtSecret = "report-routes-test-secret"
+    private val jwtIssuer = "brul-test"
+    private val jwtAudience = "brul-test-users"
+
+    private fun token(userId: Long = 1L): String =
+        JWT.create()
+            .withSubject(userId.toString())
+            .withIssuer(jwtIssuer)
+            .withAudience(jwtAudience)
+            .sign(Algorithm.HMAC256(jwtSecret))
 
     private class FakeReportRepository : ReportRepository {
 
@@ -50,7 +67,8 @@ class ReportRoutesTest {
                     description = report.description,
                     category = report.category,
                     location = report.location,
-                    urgent = requireNotNull(report.urgent)
+                    urgent = requireNotNull(report.urgent),
+                    ownerId = report.ownerId
                 )
 
                 ReportType.NUISANCE -> NuisanceReport(
@@ -58,7 +76,8 @@ class ReportRoutesTest {
                     title = report.title,
                     description = report.description,
                     category = report.category,
-                    location = report.location
+                    location = report.location,
+                    ownerId = report.ownerId
                 )
 
                 ReportType.HELP_REQUEST -> HelpRequest(
@@ -69,7 +88,8 @@ class ReportRoutesTest {
                     location = report.location,
                     volunteersNeeded = requireNotNull(
                         report.volunteersNeeded
-                    )
+                    ),
+                    ownerId = report.ownerId
                 )
             }
 
@@ -118,6 +138,25 @@ class ReportRoutesTest {
                 })
             }
 
+            install(Authentication) {
+                jwt("auth-jwt") {
+                    verifier(
+                        JWT.require(Algorithm.HMAC256(jwtSecret))
+                            .withIssuer(jwtIssuer)
+                            .withAudience(jwtAudience)
+                            .build()
+                    )
+
+                    validate { credential ->
+                        if (credential.payload.subject?.toLongOrNull() != null) {
+                            JWTPrincipal(credential.payload)
+                        } else {
+                            null
+                        }
+                    }
+                }
+            }
+
             configureErrorHandling()
 
             routing {
@@ -143,6 +182,7 @@ class ReportRoutesTest {
     @Test
     fun `post report creates new report`() = testReports {
         val response = client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -158,11 +198,13 @@ class ReportRoutesTest {
 
         assertTrue(body.contains("\"id\":1"))
         assertTrue(body.contains("\"type\":\"SAFETY\""))
+        assertTrue(body.contains("\"ownerId\":1"))
     }
 
     @Test
     fun `get report by ID returns created report`() = testReports {
         client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -192,6 +234,7 @@ class ReportRoutesTest {
     @Test
     fun `put report updates existing report`() = testReports {
         client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -213,6 +256,7 @@ class ReportRoutesTest {
         )
 
         val response = client.put("/api/v1/reports/1") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -228,11 +272,13 @@ class ReportRoutesTest {
 
         assertTrue(body.contains("\"title\":\"Updated crossing\""))
         assertTrue(body.contains("\"status\":\"IN_PROGRESS\""))
+        assertTrue(body.contains("\"ownerId\":1"))
     }
 
     @Test
     fun `delete report removes existing report`() = testReports {
         client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -242,7 +288,10 @@ class ReportRoutesTest {
             )
         }
 
-        val deleted = client.delete("/api/v1/reports/1")
+        val deleted = client.delete("/api/v1/reports/1") {
+            bearerAuth(token())
+        }
+
         val missing = client.get("/api/v1/reports/1")
 
         assertEquals(HttpStatusCode.NoContent, deleted.status)
@@ -252,6 +301,7 @@ class ReportRoutesTest {
     @Test
     fun `search reports filters by type`() = testReports {
         client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -292,6 +342,7 @@ class ReportRoutesTest {
         )
 
         val response = client.post("/api/v1/reports") {
+            bearerAuth(token())
             contentType(ContentType.Application.Json)
             setBody(
                 Json.encodeToString(
@@ -302,5 +353,34 @@ class ReportRoutesTest {
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `post without JWT returns 401`() = testReports {
+        val response = client.post("/api/v1/reports") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                Json.encodeToString(
+                    CreateReportRequest.serializer(),
+                    createRequest()
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `put without JWT returns 401`() = testReports {
+        val response = client.put("/api/v1/reports/1")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `delete without JWT returns 401`() = testReports {
+        val response = client.delete("/api/v1/reports/1")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 }

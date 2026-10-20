@@ -5,6 +5,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import java.util.Date
+import nl.brul.api.features.user.model.UserRole
 
 class JwtService(
     private val config: JwtConfig
@@ -18,7 +19,10 @@ class JwtService(
         .acceptLeeway(0)
         .build()
 
-    fun generateToken(userId: Long): String {
+    fun generateToken(
+        userId: Long,
+        role: UserRole = UserRole.USER
+    ): String {
         require(userId > 0) {
             "User ID must be positive."
         }
@@ -33,6 +37,7 @@ class JwtService(
             .withIssuer(config.issuer)
             .withAudience(config.audience)
             .withSubject(userId.toString())
+            .withClaim("role", role.name)
             .withIssuedAt(Date(issuedAt))
             .withExpiresAt(Date(expiresAt))
             .sign(algorithm)

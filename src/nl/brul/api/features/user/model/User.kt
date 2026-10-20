@@ -6,7 +6,8 @@ data class User(
     val username: String,
     val email: String,
     val passwordHash: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val role: UserRole = UserRole.USER
 ) {
     init {
         require(id > 0) {

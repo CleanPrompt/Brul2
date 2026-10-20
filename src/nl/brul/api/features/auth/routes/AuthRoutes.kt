@@ -25,6 +25,7 @@ fun Route.authRoutes(
     userRepository: UserRepository? = null
 ) {
     route("/auth") {
+
         post("/register") {
             val request = call.receive<RegisterRequest>()
 
@@ -62,7 +63,10 @@ fun Route.authRoutes(
                         username = user.username,
                         email = user.email,
                         createdAt = user.createdAt,
-                        accessToken = jwtService.generateToken(user.id),
+                        accessToken = jwtService.generateToken(
+                            user.id,
+                            user.role
+                        ),
                         tokenType = "Bearer"
                     )
                 )

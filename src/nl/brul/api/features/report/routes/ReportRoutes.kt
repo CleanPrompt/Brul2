@@ -2,6 +2,9 @@
 package nl.brul.api.features.report.routes
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.principal
+import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -84,7 +87,6 @@ fun Route.reportRoutes(service: ReportService) {
 
         get("/{id}") {
             val id = parseReportId(call.parameters["id"])
-
             val report = service.findById(id)
 
             if (report == null) {
@@ -95,50 +97,100 @@ fun Route.reportRoutes(service: ReportService) {
             call.respond(HttpStatusCode.OK, report.toResponse())
         }
 
-        post {
-            val request = call.receive<CreateReportRequest>()
-            val report = service.create(request.toNewReport())
+        authenticate("auth-jwt") {
 
-            call.respond(HttpStatusCode.Created, report.toResponse())
-        }
+            post {
+                val userId = call.principal<JWTPrincipal>()
+                    ?.payload
+                    ?.subject
+                    ?.toLongOrNull()
 
-        put("/{id}") {
-            val id = parseReportId(call.parameters["id"])
+                if (userId == null || userId <= 0) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@post
+                }
 
-            val existing = service.findById(id)
+                val request = call.receive<CreateReportRequest>()
+                val newReport = request.toNewReport().copy(ownerId = userId)
+                val report = service.create(newReport)
 
-            if (existing == null) {
-                call.respond(HttpStatusCode.NotFound)
-                return@put
+                call.respond(HttpStatusCode.Created, report.toResponse())
             }
 
-            val request = call.receive<UpdateReportRequest>()
-            val updatedReport = request.toReport(existing)
+            put("/{id}") {
+                val userId = call.principal<JWTPrincipal>()
+                    ?.payload
+                    ?.subject
+                    ?.toLongOrNull()
 
-            val updated = service.update(updatedReport)
+                if (userId == null || userId <= 0) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@put
+                }
 
-            if (!updated) {
-                call.respond(HttpStatusCode.NotFound)
-                return@put
+                val id = parseReportId(call.parameters["id"])
+                val existing = service.findById(id)
+
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+
+                if (existing.ownerId != userId) {
+                    call.respond(HttpStatusCode.Forbidden)
+                    return@put
+                }
+
+                val request = call.receive<UpdateReportRequest>()
+                val updatedReport = request.toReport(existing)
+
+                val updated = service.update(updatedReport)
+
+                if (!updated) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@put
+                }
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    requireNotNull(service.findById(id)).toResponse()
+                )
             }
 
-            call.respond(
-                HttpStatusCode.OK,
-                requireNotNull(service.findById(id)).toResponse()
-            )
-        }
+            delete("/{id}") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.subject?.toLongOrNull()
 
-        delete("/{id}") {
-            val id = parseReportId(call.parameters["id"])
+                if (userId == null || userId <= 0) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@delete
+                }
 
-            val deleted = service.delete(id)
+                val id = parseReportId(call.parameters["id"])
+                val existing = service.findById(id)
 
-            if (!deleted) {
-                call.respond(HttpStatusCode.NotFound)
-                return@delete
+                if (existing == null) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@delete
+                }
+
+                val isOwner = existing.ownerId == userId
+                val isAdmin = principal.payload.getClaim("role").asString() == "ADMIN"
+
+                if (!isOwner && !isAdmin) {
+                    call.respond(HttpStatusCode.Forbidden)
+                    return@delete
+                }
+
+                val deleted = service.delete(id)
+
+                if (!deleted) {
+                    call.respond(HttpStatusCode.NotFound)
+                    return@delete
+                }
+
+                call.respond(HttpStatusCode.NoContent)
             }
-
-            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

@@ -1,7 +1,7 @@
 // src/nl/brul/api/features/user/repository/ExposedUserRepository.kt
 package nl.brul.api.features.user.repository
-import nl.brul.api.features.user.model.NewUser
 
+import nl.brul.api.features.user.model.NewUser
 import nl.brul.api.features.user.model.User
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
@@ -63,6 +63,7 @@ class ExposedUserRepository(
         username = this[UsersTable.username],
         email = this[UsersTable.email],
         passwordHash = this[UsersTable.passwordHash],
-        createdAt = this[UsersTable.createdAt]
+        createdAt = this[UsersTable.createdAt],
+        role = this[UsersTable.role]
     )
 }
