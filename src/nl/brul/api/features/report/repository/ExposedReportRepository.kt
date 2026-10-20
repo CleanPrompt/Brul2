@@ -5,6 +5,7 @@ import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
@@ -33,6 +34,7 @@ class ExposedReportRepository(
 
         val id = ReportsTable.insert {
             it[type] = report.type.name
+            it[ownerId] = report.ownerId
             it[title] = report.title
             it[description] = report.description
             it[category] = report.category.name
@@ -128,6 +130,7 @@ class ExposedReportRepository(
 
         val createdAt = this[ReportsTable.createdAt]
         val viewCount = this[ReportsTable.viewCount]
+        val ownerId = this[ReportsTable.ownerId]
 
         return when (
             ReportType.valueOf(this[ReportsTable.type])
@@ -141,7 +144,8 @@ class ExposedReportRepository(
                 urgent = requireNotNull(this[ReportsTable.urgent]),
                 status = status,
                 createdAt = createdAt,
-                viewCount = viewCount
+                viewCount = viewCount,
+                ownerId = ownerId
             )
 
             ReportType.NUISANCE -> NuisanceReport(
@@ -152,7 +156,8 @@ class ExposedReportRepository(
                 location = location,
                 status = status,
                 createdAt = createdAt,
-                viewCount = viewCount
+                viewCount = viewCount,
+                ownerId = ownerId
             )
 
             ReportType.HELP_REQUEST -> HelpRequest(
@@ -166,7 +171,8 @@ class ExposedReportRepository(
                 ),
                 status = status,
                 createdAt = createdAt,
-                viewCount = viewCount
+                viewCount = viewCount,
+                ownerId = ownerId
             )
         }
     }

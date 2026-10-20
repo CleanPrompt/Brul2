@@ -9,7 +9,7 @@ import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
-import nl.brul.api.features.report.repository.NewReport
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals

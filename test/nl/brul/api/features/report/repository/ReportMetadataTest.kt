@@ -1,6 +1,7 @@
 // test/nl/brul/api/features/report/repository/ReportMetadataTest.kt
 package nl.brul.api.features.report.repository
 
+import nl.brul.api.features.report.model.NewReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

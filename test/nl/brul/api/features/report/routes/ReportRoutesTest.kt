@@ -29,7 +29,7 @@ import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
-import nl.brul.api.features.report.repository.NewReport
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
 import nl.brul.api.features.report.service.ReportService
 

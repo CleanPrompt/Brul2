@@ -9,7 +9,7 @@ import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
-import nl.brul.api.features.report.repository.NewReport
+import nl.brul.api.features.report.model.NewReport
 
 private inline fun <reified T : Enum<T>> parseEnum(
     value: String,
@@ -66,7 +66,8 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
             urgent = requireNotNull(newReport.urgent),
             status = requestedStatus,
             createdAt = existing.createdAt,
-            viewCount = existing.viewCount
+            viewCount = existing.viewCount,
+            ownerId = existing.ownerId
         )
 
         ReportType.NUISANCE -> NuisanceReport(
@@ -77,7 +78,8 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
             location = newReport.location,
             status = requestedStatus,
             createdAt = existing.createdAt,
-            viewCount = existing.viewCount
+            viewCount = existing.viewCount,
+            ownerId = existing.ownerId
         )
 
         ReportType.HELP_REQUEST -> HelpRequest(
@@ -91,7 +93,8 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
             ),
             status = requestedStatus,
             createdAt = existing.createdAt,
-            viewCount = existing.viewCount
+            viewCount = existing.viewCount,
+            ownerId = existing.ownerId
         )
     }
 }
@@ -109,6 +112,7 @@ fun Report.toResponse(): ReportResponse {
         urgent = (this as? SafetyReport)?.urgent,
         volunteersNeeded = (this as? HelpRequest)?.volunteersNeeded,
         createdAt = createdAt,
-        viewCount = viewCount
+        viewCount = viewCount,
+        ownerId = ownerId
     )
 }

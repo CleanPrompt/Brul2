@@ -9,7 +9,8 @@ abstract class Report(
     val location: Location,
     val status: ReportStatus = ReportStatus.OPEN,
     val createdAt: Long = System.currentTimeMillis(),
-    val viewCount: Int = 0
+    val viewCount: Int = 0,
+    val ownerId: Long? = null
 ) {
     init {
         require(id > 0) {
@@ -26,6 +27,9 @@ abstract class Report(
         }
         require(viewCount >= 0) {
             "View count cannot be negative."
+        }
+        require(ownerId == null || ownerId > 0) {
+            "Owner ID must be positive."
         }
     }
 

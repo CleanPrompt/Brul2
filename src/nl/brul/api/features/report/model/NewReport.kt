@@ -1,9 +1,5 @@
-// src/nl/brul/api/features/report/repository/NewReport.kt
-package nl.brul.api.features.report.repository
-
-import nl.brul.api.features.report.model.Location
-import nl.brul.api.features.report.model.ReportCategory
-import nl.brul.api.features.report.model.ReportType
+// src/nl/brul/api/features/report/model/NewReport.kt
+package nl.brul.api.features.report.model
 
 data class NewReport(
     val type: ReportType,
@@ -12,9 +8,14 @@ data class NewReport(
     val category: ReportCategory,
     val location: Location,
     val urgent: Boolean? = null,
-    val volunteersNeeded: Int? = null
+    val volunteersNeeded: Int? = null,
+    val ownerId: Long? = null
 ) {
     init {
+        require(ownerId == null || ownerId > 0) {
+            "Owner ID must be positive."
+        }
+
         require(title.isNotBlank()) {
             "Report title cannot be blank."
         }

@@ -7,6 +7,8 @@ object ReportsTable : Table("reports") {
 
     val id = long("id").autoIncrement()
 
+    val ownerId = long("owner_id").nullable()
+
     val type = varchar("type", 30)
 
     val title = varchar("title", 120)

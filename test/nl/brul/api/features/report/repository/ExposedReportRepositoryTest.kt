@@ -1,6 +1,7 @@
 // test/nl/brul/api/features/report/repository/ExposedReportRepositoryTest.kt
 package nl.brul.api.features.report.repository
 
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.NuisanceReport

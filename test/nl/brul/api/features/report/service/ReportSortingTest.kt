@@ -7,7 +7,7 @@ import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.model.ReportCategory
-import nl.brul.api.features.report.repository.NewReport
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
 
 class ReportSortingTest {

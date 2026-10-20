@@ -2,6 +2,7 @@
 package nl.brul.api.features.report.repository
 
 import nl.brul.api.features.report.model.Report
+import nl.brul.api.features.report.model.NewReport
 
 interface ReportRepository {
 

@@ -10,10 +10,11 @@ class SafetyReport(
     val urgent: Boolean,
     status: ReportStatus = ReportStatus.OPEN,
     createdAt: Long = System.currentTimeMillis(),
-    viewCount: Int = 0
+    viewCount: Int = 0,
+    ownerId: Long? = null
 ) : Report(
     id, title, description, category, location,
-    status, createdAt, viewCount
+    status, createdAt, viewCount, ownerId
 ) {
     override val type: ReportType = ReportType.SAFETY
 

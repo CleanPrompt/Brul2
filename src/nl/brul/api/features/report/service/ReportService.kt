@@ -2,7 +2,7 @@
 package nl.brul.api.features.report.service
 
 import nl.brul.api.features.report.model.Report
-import nl.brul.api.features.report.repository.NewReport
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
 
 class ReportService(

@@ -16,5 +16,6 @@ data class ReportResponse(
     val urgent: Boolean? = null,
     val volunteersNeeded: Int? = null,
     val createdAt: Long,
-    val viewCount: Int
+    val viewCount: Int,
+    val ownerId: Long? = null
 )
