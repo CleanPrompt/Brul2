@@ -1,3 +1,4 @@
+
 // src/nl/brul/api/features/report/service/ReportService.kt
 package nl.brul.api.features.report.service
 
@@ -26,16 +27,25 @@ class ReportService(
         return repository.findById(id)
     }
 
-    fun update(report: Report): Boolean =
-        repository.update(report)
+    fun update(report: Report): Boolean {
+        val existing = repository.findById(report.id)
+            ?: return false
+
+        ReportStatusRules.validateTransition(
+            current = existing.status,
+            next = report.status
+        )
+
+        return repository.update(report)
+    }
 
     fun delete(id: Long): Boolean {
         require(id > 0) {
             "Report ID must be positive."
         }
 
-        // Vote cleanup is handled separately until deletion
-        // can be made transactional across repositories.
+        // Related votes and participations are removed
+        // automatically by database foreign key cascades.
         return repository.delete(id)
     }
 
