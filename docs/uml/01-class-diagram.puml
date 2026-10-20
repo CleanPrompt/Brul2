@@ -1,0 +1,157 @@
+' docs/uml/01-class-diagram.puml
+
+@startuml
+
+title Brul2 - 01. Report Domain Class Diagram
+
+' Visual style
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam defaultFontColor #243247
+skinparam ArrowColor #243247
+skinparam ArrowThickness 1
+skinparam classAttributeIconSize 0
+
+skinparam class {
+    BackgroundColor #F1F5F9
+    BorderColor #243247
+    FontColor #243247
+    FontSize 13
+    AttributeFontSize 12
+}
+
+skinparam package {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #243247
+}
+
+skinparam note {
+    BackgroundColor #FFF7ED
+    BorderColor #D97706
+    FontColor #243247
+}
+
+top to bottom direction
+
+package "nl.brul.api.features.report.model" {
+
+    abstract class Report #DBEAFE {
+        +id: Long
+        +title: String
+        +description: String
+        +category: ReportCategory
+        +location: Location
+        +status: ReportStatus
+        +createdAt: Long
+        +viewCount: Int
+        +ownerId: Long?
+        {abstract} +type: ReportType
+        --
+        {abstract} #validateCategory(): Unit
+    }
+
+    class SafetyReport #D1FAE5 {
+        +urgent: Boolean
+        +type: ReportType
+        --
+        #validateCategory(): Unit
+    }
+
+    class NuisanceReport #D1FAE5 {
+        +type: ReportType
+        --
+        #validateCategory(): Unit
+    }
+
+    class HelpRequest #D1FAE5 {
+        +volunteersNeeded: Int
+        +type: ReportType
+        --
+        #validateCategory(): Unit
+    }
+
+    class Location <<data class>> #F1F5F9 {
+        +latitude: Double
+        +longitude: Double
+        --
+        +distanceTo(other: Location): Double
+    }
+
+    enum ReportType #FEF3C7 {
+        SAFETY
+        NUISANCE
+        HELP_REQUEST
+    }
+
+    enum ReportStatus #FEF3C7 {
+        OPEN
+        IN_PROGRESS
+        RESOLVED
+    }
+
+    enum ReportCategory #FEF3C7 {
+        THEFT
+        SUSPICIOUS_SITUATION
+        TRAFFIC_SAFETY
+        NOISE
+        WASTE
+        VANDALISM
+        PARKING
+        GROCERIES
+        TRANSPORT
+        MOVING
+        CHORES
+        OTHER
+    }
+}
+
+' Inheritance
+Report <|-- SafetyReport
+Report <|-- NuisanceReport
+Report <|-- HelpRequest
+
+' Domain relationships
+Report --> "1" Location : location
+Report --> "1" ReportCategory : category
+Report --> "1" ReportStatus : status
+Report --> "1" ReportType : type
+
+' Validation rules
+note right of SafetyReport
+    Allowed categories:
+    THEFT
+    SUSPICIOUS_SITUATION
+    TRAFFIC_SAFETY
+end note
+
+note right of NuisanceReport
+    Allowed categories:
+    NOISE
+    WASTE
+    VANDALISM
+    PARKING
+end note
+
+note right of HelpRequest
+    Allowed categories:
+    GROCERIES
+    TRANSPORT
+    MOVING
+    CHORES
+    OTHER
+
+    volunteersNeeded > 0
+end note
+
+note bottom of Location
+    Latitude: -90 to 90
+    Longitude: -180 to 180
+
+    distanceTo() returns kilometers.
+end note
+
+@enduml
