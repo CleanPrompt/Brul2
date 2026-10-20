@@ -1,8 +1,8 @@
 # Brul2 — Development Roadmap
 
-Brul2 is a REST API built with Kotlin, Ktor, JetBrains Amper, Exposed and H2.
+Brul2 is a REST API built with **Kotlin, Ktor, JetBrains Amper, Exposed and H2**.
 
-The project follows a feature-based architecture and focuses on simplicity, maintainability, object-oriented programming (OOP), functional programming (FP), and the requirements of the school assignment.
+The project follows a feature-based architecture and focuses on simplicity, maintainability, object-oriented programming (OOP), functional programming (FP), automated testing and the requirements of the school assignment.
 
 ## Project Principles
 
@@ -11,10 +11,11 @@ The project follows a feature-based architecture and focuses on simplicity, main
 - Organize code by feature.
 - Separate routes, services and repositories.
 - Use repository interfaces for testability.
-- Write code and comments in English.
+- Write code, comments and documentation in English.
 - Use Kotlin null-safety and avoid `!!`.
-- Write tests throughout development.
-- Complete each checkpoint with a GitHub commit.
+- Write meaningful tests throughout development.
+- Complete each checkpoint with a Git commit.
+- Avoid unnecessary complexity.
 - Do not implement an AI agent.
 
 ---
@@ -23,27 +24,54 @@ The project follows a feature-based architecture and focuses on simplicity, main
 
 | Checkpoint | Feature | Status |
 |---|---|---|
-| 1–5 | Foundation, domain, database, reports API | Implemented |
-| 6 | Users and JWT authentication | Implemented and tested |
-| 7 | Voting, sorting, cascade deletion | Implemented and tested; 239 confirmed |
-| 8 | Help participation | Implemented and tested |
-| 9 | Report status management | Implemented and tested |
-| 10 | Quality review | Pending |
-| 11 | Documentation and delivery | Pending |
+| 1 | Ktor Server & Routing | Completed |
+| 2 | JSON, Configuration & Error Handling | Completed |
+| 3 | Report Domain Models | Completed |
+| 4 | Database & Repositories | Completed |
+| 5 | Reports REST API | Completed |
+| 6 | Users & JWT Authentication | Completed |
+| 7 | Voting & Sorting | Completed |
+| 8 | Help Participation | Completed |
+| 9 | Report Status Management | Completed |
+| 10.1 | Volunteer Capacity Validation | Completed |
+| 10.2 | Volunteer Capacity API Integration Tests | Completed |
+| 10.3 | Final Quality Review | Pending |
+| 11 | Documentation & Delivery | In progress |
 
-**Test status:** All tests passed after Checkpoint 9; expected 263 total, exact number unconfirmed.
+### Current Test Status
 
-**Principle:** Prefer meaningful tests and KISS over unnecessary complexity or test count.
+**268 tests passed — 0 failures.**
+
+The complete automated test suite passed after Checkpoint 10.2.
+
+The latest changes were committed to Git.
+
+### Current Development Status
+
+The core REST API functionality is implemented and tested.
+
+Remaining work focuses on:
+
+1. Final quality review.
+2. Manual verification of API endpoints.
+3. Confirming remaining business-rule decisions.
+4. UML diagrams.
+5. Sequence diagrams.
+6. School report and demonstration video.
+7. Final delivery checks.
+
+**Development principle:** Prefer meaningful tests and KISS over unnecessary complexity or increasing the test count without a clear reason.
 
 ---
 
-## Phase 1 — Project Foundation
+# Phase 1 — Project Foundation
 
-### Checkpoint 1 — Ktor Server & Routing
+## Checkpoint 1 — Ktor Server & Routing
 
-**Status:** Implemented
+**Status: Completed**
 
-Tasks:
+### Tasks
+
 - [x] Create Brul2 using JetBrains Amper.
 - [x] Configure `module.yaml`.
 - [x] Configure `application.yaml`.
@@ -51,52 +79,90 @@ Tasks:
 - [x] Create `Routing.kt`.
 - [x] Implement `GET /api/v1/health`.
 - [x] Start the server successfully.
-- [x] Create `HealthRoutesTest.kt`.
-- [x] Run `kotlin test`.
-- [ ] Verify `README.md` is up to date.
-- [ ] Verify commit and push to GitHub.
+- [x] Create health endpoint tests.
+- [x] Run automated tests.
+- [x] Document the project setup.
 
-Tests:
+### Implemented Endpoint
+
+```http
+GET /api/v1/health
+```
+
+### Tests
+
 - Health endpoint returns HTTP 200.
-- Health endpoint returns the expected response.
+- Health endpoint returns the expected JSON response.
 
-Commit:
-`chore: initialize Brul2 Ktor project`
+### Suggested Commit
 
-### Checkpoint 2 — JSON, Configuration & Error Handling
+```text
+chore: initialize Brul2 Ktor project
+```
 
-**Status:** Implemented and tested
+---
 
-Tasks:
+## Checkpoint 2 — JSON, Configuration & Error Handling
+
+**Status: Completed**
+
+### Tasks
+
 - [x] Configure Ktor ContentNegotiation.
 - [x] Configure kotlinx.serialization.
 - [x] Create `AppConfig.kt`.
 - [x] Create `ApiError.kt`.
 - [x] Create `ErrorHandling.kt`.
 - [x] Configure Ktor StatusPages.
-- [x] Return JSON from the health endpoint.
+- [x] Return JSON from API endpoints.
+- [x] Handle invalid request data.
+- [x] Handle unexpected server errors.
 - [x] Add relevant tests.
-- [x] Update documentation.
-- [ ] Verify commit and push to GitHub.
+- [x] Document error handling.
 
-Tests:
-- Health endpoint returns valid JSON.
-- Health endpoint returns HTTP 200.
-- Invalid requests return an appropriate error response.
-- Unexpected errors return HTTP 500 without exposing internal details.
+### Error Handling
 
-Commit:
-`feat: configure JSON and error handling`
+The API uses centralized error handling through `StatusPages`.
+
+Common HTTP responses:
+
+| Status | Description |
+|---|---|
+| `200 OK` | Successful request |
+| `201 Created` | Resource created |
+| `204 No Content` | Successful deletion |
+| `400 Bad Request` | Invalid request |
+| `401 Unauthorized` | Authentication required or invalid |
+| `403 Forbidden` | Insufficient permissions |
+| `404 Not Found` | Resource not found |
+| `409 Conflict` | Conflicting operation |
+| `500 Internal Server Error` | Unexpected server error |
+
+Unexpected exceptions are logged without exposing internal details in the API response.
+
+### Tests
+
+- Valid JSON responses.
+- Invalid request handling.
+- Appropriate HTTP status codes.
+- Unexpected error handling.
+
+### Suggested Commit
+
+```text
+feat: configure JSON and error handling
+```
 
 ---
 
-## Phase 2 — Domain & Database
+# Phase 2 — Domain & Database
 
-### Checkpoint 3 — Report Domain Models
+## Checkpoint 3 — Report Domain Models
 
-**Status:** Implemented and tested
+**Status: Completed**
 
-Tasks:
+### Tasks
+
 - [x] Create abstract `Report` class.
 - [x] Create `SafetyReport`.
 - [x] Create `NuisanceReport`.
@@ -104,12 +170,40 @@ Tasks:
 - [x] Create `Location`.
 - [x] Create `ReportType`.
 - [x] Create `ReportCategory`.
-- [x] Define domain validation rules.
+- [x] Create `ReportStatus`.
+- [x] Implement domain validation.
 - [x] Write unit tests.
-- [x] Update documentation.
-- [ ] Verify commit and push to GitHub.
+- [x] Document domain models.
 
-School concepts:
+### Report Types
+
+| Type | Description |
+|---|---|
+| `SAFETY` | Safety-related reports |
+| `NUISANCE` | Nuisance-related reports |
+| `HELP_REQUEST` | Requests for volunteer assistance |
+
+### Domain Validation
+
+The abstract `Report` class validates shared properties:
+
+- Report ID must be positive.
+- Title cannot be blank.
+- Description cannot be blank.
+- Creation timestamp must be positive.
+- View count cannot be negative.
+- Owner ID must be positive when provided.
+
+Each concrete report type validates its own category.
+
+`HelpRequest` also requires:
+
+```text
+volunteersNeeded > 0
+```
+
+### School Concepts
+
 - Abstract classes.
 - Inheritance.
 - Polymorphism.
@@ -117,22 +211,30 @@ School concepts:
 - Data classes.
 - Enums.
 - Null safety.
+- Constructor validation.
 
-Tests:
+### Tests
+
 - Valid report creation.
 - Invalid category validation.
 - Invalid location validation.
 - Polymorphic behavior.
-- Help request business rules.
+- Help request validation.
 
-Commit:
-`feat: implement report domain models`
+### Suggested Commit
 
-### Checkpoint 4 — Database & Repositories
+```text
+feat: implement report domain models
+```
 
-**Status:** Implemented and tested
+---
 
-Tasks:
+## Checkpoint 4 — Database & Repositories
+
+**Status: Completed**
+
+### Tasks
+
 - [x] Add H2 dependency.
 - [x] Add Exposed DSL dependencies.
 - [x] Create `DatabaseFactory.kt`.
@@ -140,66 +242,139 @@ Tasks:
 - [x] Create `ReportRepository` interface.
 - [x] Create `ExposedReportRepository`.
 - [x] Configure database initialization.
+- [x] Implement database persistence.
 - [x] Write database integration tests.
-- [x] Update documentation.
-- [ ] Verify commit and push to GitHub.
+- [x] Document database architecture.
 
-Tests:
-- Save a report.
-- Retrieve a report.
-- Delete a report.
+### Database Tables
+
+The application currently uses four main tables:
+
+| Table | Purpose |
+|---|---|
+| `reports` | Report data |
+| `users` | User accounts |
+| `votes` | Report votes |
+| `help_participations` | Volunteer registrations |
+
+### Repository Pattern
+
+Database operations are defined through repository interfaces.
+
+Example:
+
+```kotlin
+interface ReportRepository {
+    fun create(report: NewReport): Report
+    fun findAll(): List<Report>
+    fun findById(id: Long): Report?
+    fun update(report: Report): Boolean
+    fun delete(id: Long): Boolean
+}
+```
+
+`ExposedReportRepository` implements these operations using Exposed DSL and H2.
+
+### Tests
+
+- Create and retrieve reports.
+- Update existing reports.
+- Delete reports.
 - Verify database persistence.
+- Verify report type mapping.
 
-Commit:
-`feat: add Exposed database persistence`
+### Suggested Commit
+
+```text
+feat: add Exposed database persistence
+```
 
 ---
 
-## Phase 3 — REST API Features
+# Phase 3 — REST API Features
 
-### Checkpoint 5 — Reports API
+## Checkpoint 5 — Reports REST API
 
-**Status:** Implemented and tested
+**Status: Completed**
 
-Tasks:
-- [x] Create report request and response DTOs.
+### Tasks
+
+- [x] Create report request DTOs.
+- [x] Create report response DTOs.
 - [x] Create `ReportService.kt`.
 - [x] Create `ReportRoutes.kt`.
 - [x] Implement report creation.
 - [x] Implement report retrieval.
 - [x] Implement report listing.
-- [x] Implement searching and filtering.
+- [x] Implement report searching.
+- [x] Implement filtering.
+- [x] Implement sorting.
 - [x] Implement report updates.
 - [x] Implement report deletion.
 - [x] Implement validation and error responses.
-- [x] Write unit and integration tests.
-- [x] Add HTTP example requests.
-- [ ] Verify commit and push to GitHub.
+- [x] Write unit tests.
+- [x] Write HTTP integration tests.
+- [x] Document API endpoints.
 
-Endpoints (proposed):
-- `POST /api/v1/reports`
-- `GET /api/v1/reports`
-- `GET /api/v1/reports/{id}`
-- `PUT /api/v1/reports/{id}`
-- `DELETE /api/v1/reports/{id}`
+### Endpoints
 
-Tests:
-- Create a valid report.
+| Method | Endpoint | Authentication |
+|---|---|---|
+| GET | `/api/v1/reports` | Public |
+| GET | `/api/v1/reports/{id}` | Public |
+| POST | `/api/v1/reports` | JWT |
+| PUT | `/api/v1/reports/{id}` | Owner |
+| DELETE | `/api/v1/reports/{id}` | Owner or ADMIN |
+
+### Search Parameters
+
+The report listing endpoint supports:
+
+| Parameter | Description |
+|---|---|
+| `query` | Search title and description |
+| `type` | Filter by report type |
+| `category` | Filter by category |
+| `latitude` | Search center latitude |
+| `longitude` | Search center longitude |
+| `radiusKm` | Search radius in kilometers |
+| `sort` | Sorting option |
+
+### Sorting Options
+
+- `ID_ASC`
+- `ID_DESC`
+- `NEAREST`
+- `NEWEST`
+- `MOST_VIEWED`
+- `MOST_LIKED`
+
+### Tests
+
+- Create valid reports.
 - Reject invalid report data.
-- Retrieve an existing report.
-- Return 404 for an unknown report.
+- Retrieve existing reports.
+- Return 404 for missing reports.
 - Search and filter reports.
-- Update a report.
-- Delete a report.
+- Sort reports.
+- Update reports.
+- Delete reports.
+- Reject invalid query parameters.
 
-Commit:
-`feat: implement reports REST API`
+### Suggested Commit
 
-### Checkpoint 6 — Users & Authentication
+```text
+feat: implement reports REST API
+```
 
-**Status:** Implemented and tested
+---
 
-Tasks:
+## Checkpoint 6 — Users & Authentication
+
+**Status: Completed**
+
+### Tasks
+
 - [x] Create `User` model.
 - [x] Create `Role` enum.
 - [x] Create `UsersTable.kt`.
@@ -207,211 +382,889 @@ Tasks:
 - [x] Create authentication DTOs.
 - [x] Implement user registration.
 - [x] Implement login.
-- [x] Add BCrypt password hashing.
+- [x] Implement BCrypt password hashing.
 - [x] Configure JWT authentication.
-- [x] Protect endpoints requiring authentication.
+- [x] Protect authenticated endpoints.
+- [x] Implement USER and ADMIN roles.
+- [x] Implement report ownership.
 - [x] Implement authorization rules.
 - [x] Write unit and integration tests.
-- [x] Add HTTP example requests.
-- [ ] Verify commit and push to GitHub.
+- [x] Document authentication.
 
-Endpoints (proposed):
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/users/me`
+### Endpoints
 
-Tests:
-- Register a valid user.
-- Reject duplicate registration.
-- Login with valid credentials.
-- Reject incorrect passwords.
-- Reject requests without authentication.
-- Verify authorization rules.
+```http
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+```
 
-Note:
-- Start with access tokens only.
-- Do not implement refresh tokens unless required.
+### Authentication
 
-Commit:
-`feat: implement user authentication`
+Protected requests use:
 
-### Checkpoint 7 — Voting
+```http
+Authorization: Bearer YOUR_JWT_TOKEN
+```
 
-**Status:** Implemented and tested
+### Authorization Rules
 
-Tasks:
-- [x] Create vote model and DTOs.
+- Unauthenticated users cannot create reports.
+- Only authenticated users can create reports.
+- Only the owner can update a report.
+- The owner or an ADMIN can delete a report.
+- Protected voting and participation operations require authentication.
+
+### Tests
+
+- Valid registration.
+- Duplicate registration rejection.
+- Valid login.
+- Incorrect password rejection.
+- JWT validation.
+- Missing authentication.
+- Ownership validation.
+- Role-based authorization.
+
+### Implementation Notes
+
+- Passwords are stored as BCrypt hashes.
+- JWT access tokens are used for authentication.
+- Refresh tokens are not part of the current implementation.
+- Authentication is kept simple to match the school assignment.
+
+### Suggested Commit
+
+```text
+feat: implement user authentication
+```
+
+---
+
+## Checkpoint 7 — Voting
+
+**Status: Completed**
+
+### Tasks
+
+- [x] Create vote model.
+- [x] Create vote DTOs.
 - [x] Create `VotesTable.kt`.
 - [x] Create vote repository.
 - [x] Create `VoteService.kt`.
-- [x] Create `VoteRoutes.kt`.
-- [x] Implement voting on reports.
-- [x] Implement changing or removing votes.
+- [x] Create voting routes.
+- [x] Implement liking reports.
+- [x] Implement disliking reports.
+- [x] Implement changing votes.
+- [x] Implement removing votes.
 - [x] Prevent duplicate votes.
 - [x] Implement vote counting.
-- [x] Require authentication.
+- [x] Implement `MOST_LIKED` sorting.
+- [x] Require authentication for voting.
+- [x] Configure cascade deletion.
 - [x] Write unit and integration tests.
-- [x] Add HTTP example requests.
-- [ ] Verify commit and push to GitHub.
+- [x] Document voting endpoints.
 
-Tests:
-- Create a vote.
+### Endpoints
+
+| Method | Endpoint | Authentication |
+|---|---|---|
+| GET | `/api/v1/reports/{id}/votes` | Public |
+| PUT | `/api/v1/reports/{id}/vote` | JWT |
+| GET | `/api/v1/reports/{id}/vote/me` | JWT |
+| DELETE | `/api/v1/reports/{id}/vote` | JWT |
+
+### Business Rules
+
+- A user can have one vote per report.
+- Users can change their vote.
+- Users can remove their vote.
+- Vote totals are calculated per report.
+- Related votes are deleted when a report is deleted.
+
+### Tests
+
+- Create votes.
 - Prevent duplicate votes.
-- Change a vote.
-- Remove a vote.
-- Calculate vote totals.
+- Change votes.
+- Remove votes.
+- Calculate totals.
 - Reject unauthorized voting.
+- Sort by likes.
+- Verify cascade deletion.
 
-Commit:
-`feat: implement report voting`
+### Recorded Milestone
 
-### Checkpoint 8 — Help Participation
+**239 tests passed after Checkpoint 7.**
 
-**Status:** Implemented and tested
+### Suggested Commit
 
-Tasks:
-- [x] Create help participation model.
+```text
+feat: implement report voting
+```
+
+---
+
+## Checkpoint 8 — Help Participation
+
+**Status: Completed**
+
+### Tasks
+
+- [x] Create `HelpParticipation` model.
 - [x] Create `HelpParticipationsTable.kt`.
-- [x] Create help repository.
-- [x] Create `HelpService.kt`.
-- [x] Create `HelpRoutes.kt`.
-- [x] Implement joining a help request.
-- [x] Implement leaving a help request.
-- [x] Validate participant capacity.
-- [x] Handle help request status.
+- [x] Create `HelpParticipationRepository`.
+- [x] Create `ExposedHelpParticipationRepository`.
+- [x] Create `HelpParticipationService`.
+- [x] Create help participation routes.
+- [x] Register help participation routes in `Routing.kt`.
+- [x] Implement joining help requests.
+- [x] Implement leaving help requests.
 - [x] Prevent duplicate participation.
-- [x] Require authentication.
+- [x] Prevent owners from joining their own help requests.
+- [x] Validate volunteer capacity.
+- [x] Prevent joining closed help requests.
+- [x] Implement participation summaries.
+- [x] Implement participant listing.
+- [x] Require authentication for joining and leaving.
+- [x] Configure cascade deletion.
 - [x] Write unit and integration tests.
-- [x] Add HTTP example requests.
-- [ ] Verify commit and push to GitHub.
+- [x] Document help participation endpoints.
 
-Tests:
+### Endpoints
+
+| Method | Endpoint | Authentication |
+|---|---|---|
+| GET | `/api/v1/reports/{id}/participants` | Public |
+| GET | `/api/v1/reports/{id}/participants/list` | Public |
+| POST | `/api/v1/reports/{id}/participants` | JWT |
+| DELETE | `/api/v1/reports/{id}/participants/me` | JWT |
+
+### Business Rules
+
+- Only help requests support volunteer participation.
+- The report owner cannot join their own help request.
+- A user cannot join the same help request twice.
+- A help request cannot exceed its volunteer capacity.
+- New participants can only join an open help request.
+- Participants can leave a help request.
+- A user/report combination must be unique in the database.
+
+### Participation Availability
+
+Participation summaries derive an availability status:
+
+| Status | Meaning |
+|---|---|
+| `OPEN` | New volunteers can join |
+| `FULL` | No volunteer places remain |
+| `CLOSED` | The report is not open for participation |
+
+This availability status is separate from the stored report status.
+
+### Tests
+
 - Join a help request.
-- Prevent duplicate participation.
-- Reject participation when capacity is full.
+- Reject duplicate participation.
+- Reject joining your own request.
+- Reject participation when full.
 - Leave a help request.
-- Reject participation in a closed help request.
+- Reject joining a closed request.
+- Verify participation summaries.
+- Verify cascade deletion.
 
-Commit:
-`feat: implement help participation`
+### Recorded Milestone
+
+**18 tests added in Checkpoint 8.**
+
+### Suggested Commit
+
+```text
+feat: implement help participation
+```
 
 ---
 
-### Checkpoint 9 — Report Status Management
+## Checkpoint 9 — Report Status Management
 
-**Status:** Implemented and tested
+**Status: Completed**
 
-Tasks:
-- [x] Reuse existing `PUT /api/v1/reports/{id}` and owner authorization.
-- [x] Add `ReportStatusRules` and validate transitions in `ReportService.update`.
-- [x] Allow OPEN → IN_PROGRESS, OPEN → RESOLVED, and IN_PROGRESS → RESOLVED.
-- [x] Reject reopening a RESOLVED report and returning IN_PROGRESS to OPEN.
+### Tasks
+
+- [x] Reuse `PUT /api/v1/reports/{id}`.
+- [x] Reuse report owner authorization.
+- [x] Create `ReportStatusRules.kt`.
+- [x] Validate status transitions in `ReportService.update()`.
 - [x] Allow unchanged status.
-- [x] Add six focused status-rule tests.
-- [ ] Manually verify status updates through the running server.
-- [ ] Verify commit and push to GitHub.
+- [x] Allow `OPEN` to `IN_PROGRESS`.
+- [x] Allow `OPEN` to `RESOLVED`.
+- [x] Allow `IN_PROGRESS` to `RESOLVED`.
+- [x] Reject `IN_PROGRESS` to `OPEN`.
+- [x] Reject reopening resolved reports.
+- [x] Add six status-rule tests.
+- [ ] Manually verify all status transitions through the running server.
+- [ ] Confirm that these rules match the assignment requirements.
 
-Note: Current status rules apply to **all report types**, not only help requests. Confirm that this matches the assignment.
+### Report Statuses
 
-Suggested commit: `feat: validate report status transitions`
+- `OPEN`
+- `IN_PROGRESS`
+- `RESOLVED`
 
----
+### Allowed Transitions
 
-## Phase 4 — Quality & Delivery
+| Current Status | Next Status | Allowed |
+|---|---|---|
+| OPEN | OPEN | Yes |
+| OPEN | IN_PROGRESS | Yes |
+| OPEN | RESOLVED | Yes |
+| IN_PROGRESS | IN_PROGRESS | Yes |
+| IN_PROGRESS | RESOLVED | Yes |
+| IN_PROGRESS | OPEN | No |
+| RESOLVED | RESOLVED | Yes |
+| RESOLVED | OPEN | No |
+| RESOLVED | IN_PROGRESS | No |
 
-### Checkpoint 10 — Testing & Quality
+### Implementation
 
-**Status:** Pending final review
+Status validation is handled by:
 
-Tasks:
-- [ ] Review unit and integration test coverage for meaningful behavior.
-- [ ] Manually verify all API endpoints in the running application.
-- [ ] Verify authentication, authorization, invalid input and error handling.
-- [ ] Verify database initialization and cascade deletion.
-- [ ] Prevent lowering `volunteersNeeded` below the number of existing participants.
-- [ ] Decide whether status rules should apply to all report types.
-- [ ] Review Kotlin null-safety and remove unnecessary code.
-- [ ] Record the exact final test count.
-- [ ] Verify commit and push to GitHub.
+```text
+ReportStatusRules.validateTransition()
+```
 
-School requirements:
-- At least 3 meaningful unit tests.
-- At least 3 meaningful integration tests.
-- Check individual portfolio requirements.
+The service checks the existing report status before updating the database.
 
-Suggested commit: `test: complete API quality review`
+### Important Design Decision
 
-### Checkpoint 11 — Documentation & Delivery
+The current implementation applies status transition rules to **all report types**.
 
-**Status:** Pending
+This behavior is implemented and tested. Whether the school assignment requires these rules for every report type still needs to be confirmed.
 
-Tasks:
-- [ ] Complete `README.md`.
-- [ ] Document project structure, installation, configuration and startup.
-- [ ] Document all actual API endpoints and JWT authentication.
-- [ ] Add HTTP request examples.
-- [ ] Create UML class diagram and UML package diagram.
-- [ ] Create at least 3 relevant sequence diagrams.
-- [ ] Explain OOP and FP usage with concrete examples.
-- [ ] Complete the school report and demonstration video.
-- [ ] Verify the school assignment requirements.
-- [ ] Run final tests and check Git status.
-- [ ] Commit and push to GitHub.
+### Recorded Milestone
 
-Suggested commit: `docs: finalize Brul2 documentation`
+**6 status-rule tests added in Checkpoint 9.**
 
----
+### Suggested Commit
 
-## Implemented API Summary
-
-- `GET /api/v1/health`
-- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`
-- `GET /api/v1/reports`, `GET /api/v1/reports/{id}`
-- `POST /api/v1/reports` (JWT)
-- `PUT /api/v1/reports/{id}` (owner)
-- `DELETE /api/v1/reports/{id}` (owner or ADMIN)
-- `GET /api/v1/reports/{id}/votes`
-- `PUT /api/v1/reports/{id}/vote`, `GET /api/v1/reports/{id}/vote/me`, `DELETE /api/v1/reports/{id}/vote` (JWT)
-- `GET /api/v1/reports/{id}/participants`, `GET /api/v1/reports/{id}/participants/list`
-- `POST /api/v1/reports/{id}/participants`, `DELETE /api/v1/reports/{id}/participants/me` (JWT)
-
-Checkpoint 8 uses `HelpParticipationService` and `HelpParticipationRoutes`, not the original proposed `HelpService` / `HelpRoutes` names. Help request participation status is derived as OPEN, FULL or CLOSED, while stored report status remains OPEN, IN_PROGRESS or RESOLVED. The database enforces one active participation per report/user and cascading deletion.
+```text
+feat: validate report status transitions
+```
 
 ---
 
-## Development Workflow
+# Phase 4 — Quality & Delivery
 
-Follow these steps for every checkpoint:
+## Checkpoint 10 — Testing & Quality
 
-1. Discuss the functionality and relevant school concepts.
-2. Define test scenarios before implementation.
-3. Create or modify the required files.
-4. Run automated tests using `kotlin test`.
-5. Manually verify relevant API endpoints.
-6. Update the README and project documentation.
-7. Check Git status.
-8. Commit and push to GitHub.
+**Status: In progress**
 
-## GitHub Workflow
+Checkpoint 10 focuses on validating existing functionality rather than introducing unnecessary new features.
+
+### Checkpoint 10.1 — Volunteer Capacity Validation
+
+**Status: Completed**
+
+#### Problem
+
+A help request could previously be updated to require fewer volunteers than the number of people already participating.
+
+Example:
+
+```text
+Original capacity: 5
+Registered participants: 3
+Requested new capacity: 2
+```
+
+The update must be rejected because three volunteers are already registered.
+
+#### Business Rule
+
+```text
+volunteersNeeded >= currentParticipantCount
+```
+
+#### Tasks
+
+- [x] Reuse `HelpParticipationRepository.countByHelpRequest()`.
+- [x] Add participation repository dependency to `ReportService`.
+- [x] Connect the participation repository in `Routing.kt`.
+- [x] Validate volunteer capacity in `ReportService.update()`.
+- [x] Reject invalid capacity reductions.
+- [x] Allow capacity equal to participant count.
+- [x] Allow capacity increases.
+- [x] Write three focused service tests.
+- [x] Run the complete test suite.
+
+#### Implementation
+
+The service checks the participant count before updating a `HelpRequest`.
+
+An invalid reduction throws an `IllegalArgumentException`.
+
+The existing error handling converts this exception to:
+
+```http
+400 Bad Request
+```
+
+#### Test Scenarios
+
+| Participants | New Capacity | Expected Result |
+|---|---|---|
+| 3 | 2 | Rejected |
+| 3 | 3 | Accepted |
+| 3 | 6 | Accepted |
+
+#### Recorded Milestone
+
+**266 tests passed after Checkpoint 10.1.**
+
+---
+
+### Checkpoint 10.2 — Volunteer Capacity API Integration Tests
+
+**Status: Completed**
+
+#### Goal
+
+Verify that volunteer capacity validation works through the actual REST API, not only when calling the service directly.
+
+#### Tasks
+
+- [x] Review `ReportRoutesTest.kt`.
+- [x] Review `ErrorHandling.kt`.
+- [x] Add a fake participation repository to the route test setup.
+- [x] Configure `ReportService` with the fake participation repository.
+- [x] Test invalid capacity reduction through HTTP PUT.
+- [x] Verify HTTP 400 for invalid capacity.
+- [x] Verify that rejected updates do not modify the stored report.
+- [x] Test a valid capacity update through HTTP PUT.
+- [x] Verify HTTP 200 for valid capacity.
+- [x] Verify that the new capacity is stored.
+- [x] Run the complete test suite.
+- [x] Commit the completed changes.
+
+#### Test 1 — Invalid Capacity
+
+```text
+Initial capacity: 5
+Registered participants: 3
+Requested capacity: 2
+
+Expected:
+HTTP 400 Bad Request
+Stored capacity remains 5
+```
+
+#### Test 2 — Valid Capacity
+
+```text
+Initial capacity: 5
+Registered participants: 3
+Requested capacity: 3
+
+Expected:
+HTTP 200 OK
+Stored capacity becomes 3
+```
+
+#### Files Involved
+
+- `ReportService.kt`
+- `Routing.kt`
+- `ReportVolunteerCapacityTest.kt`
+- `ReportRoutesTest.kt`
+
+The following files did not require changes:
+
+- `Report.kt`
+- `ReportRepository.kt`
+- `ExposedReportRepository.kt`
+- `HelpParticipationRepository.kt`
+- `ErrorHandling.kt`
+
+#### Recorded Milestone
+
+**268 tests passed — 0 failures.**
+
+The changes were committed to Git.
+
+#### Commit
+
+```text
+Complete volunteer capacity validation and API tests
+```
+
+The exact commit hash and message can be checked in Git history.
+
+---
+
+### Checkpoint 10.3 — Final Quality Review
+
+**Status: Pending**
+
+#### Tasks
+
+- [ ] Review automated test coverage.
+- [ ] Manually verify the health endpoint.
+- [ ] Manually verify registration and login.
+- [ ] Manually verify report creation, retrieval, updating and deletion.
+- [ ] Manually verify report searching and sorting.
+- [ ] Manually verify voting.
+- [ ] Manually verify help participation.
+- [ ] Manually verify report status transitions.
+- [ ] Manually verify volunteer capacity validation.
+- [ ] Verify missing and invalid JWT behavior.
+- [ ] Verify owner and ADMIN authorization.
+- [ ] Verify invalid request handling.
+- [ ] Verify database initialization.
+- [ ] Verify database cascade deletion.
+- [ ] Confirm the intended scope of status transition rules.
+- [ ] Review Kotlin null-safety.
+- [ ] Remove unused imports and unnecessary code.
+- [ ] Check for hardcoded secrets or credentials.
+- [ ] Run the complete automated test suite.
+- [ ] Check Git status before proceeding.
+
+#### Important Review Point
+
+`ReportService` currently accepts an optional `HelpParticipationRepository`.
+
+When the repository is not provided, the volunteer count defaults to zero.
+
+The real application supplies this repository through `Routing.kt`, so the capacity check is active there.
+
+During the final review, confirm that all production construction paths provide the required repository.
+
+#### School Requirements
+
+- At least three meaningful unit tests.
+- At least three meaningful integration tests.
+- Demonstrate OOP concepts.
+- Demonstrate FP concepts.
+- Meet individual portfolio requirements.
+
+The current test suite contains **268 passing tests**, but the school requirements should be checked against the official assignment.
+
+#### Completion Criteria
+
+Checkpoint 10 is complete when:
+
+- All automated tests pass.
+- Relevant endpoints have been manually verified.
+- No known blocking defects remain.
+- Business-rule decisions are confirmed.
+- The project is ready for final documentation.
+
+#### Suggested Commit
+
+```text
+test: complete final API quality review
+```
+
+---
+
+## Checkpoint 11 — Documentation & Delivery
+
+**Status: In progress**
+
+### 11.1 — README
+
+**Status: Updated; final verification pending**
+
+#### Tasks
+
+- [x] Write a complete project introduction.
+- [x] Document the technology stack.
+- [x] Document the feature-based architecture.
+- [x] Document report management.
+- [x] Document authentication and authorization.
+- [x] Document voting.
+- [x] Document help participation.
+- [x] Document status management.
+- [x] Document the database structure.
+- [x] Document API endpoints.
+- [x] Add HTTP request examples.
+- [x] Explain OOP and FP concepts.
+- [x] Document testing.
+- [x] Document remaining work.
+- [ ] Verify README against the final source code.
+- [ ] Update the recorded test count to 268 where necessary.
+- [ ] Verify installation and startup instructions on a clean environment.
+
+### 11.2 — UML Class Diagram
+
+**Status: Pending**
+
+#### Tasks
+
+- [ ] Create a UML class diagram.
+- [ ] Include the abstract `Report` class.
+- [ ] Include `SafetyReport`, `NuisanceReport` and `HelpRequest`.
+- [ ] Show inheritance relationships.
+- [ ] Include relevant user and participation models.
+- [ ] Include relevant repository interfaces.
+- [ ] Show important associations.
+- [ ] Verify class names and relationships against the actual code.
+- [ ] Add the diagram to the school documentation.
+
+#### Important Concepts
+
+- Abstraction.
+- Inheritance.
+- Polymorphism.
+- Encapsulation.
+- Interfaces.
+- Associations.
+
+### 11.3 — UML Package Diagram
+
+**Status: Pending**
+
+#### Tasks
+
+- [ ] Create a package diagram.
+- [ ] Show the feature-based package structure.
+- [ ] Show dependencies between routes, services and repositories.
+- [ ] Show shared configuration and security packages.
+- [ ] Explain the separation of responsibilities.
+
+### 11.4 — Sequence Diagrams
+
+**Status: Pending**
+
+Create at least three sequence diagrams based on real application behavior.
+
+#### Suggested Diagram 1 — User Login
+
+```text
+Client
+  -> AuthRoutes
+  -> AuthService
+  -> UserRepository
+  -> BCryptPasswordHasher
+  -> JwtService
+  -> Client
+```
+
+#### Suggested Diagram 2 — Create Report
+
+```text
+Client
+  -> ReportRoutes
+  -> ReportService
+  -> ReportRepository
+  -> H2 Database
+  -> Client
+```
+
+#### Suggested Diagram 3 — Join Help Request
+
+```text
+Client
+  -> HelpParticipationRoutes
+  -> HelpParticipationService
+  -> ReportRepository
+  -> HelpParticipationRepository
+  -> H2 Database
+  -> Client
+```
+
+#### Tasks
+
+- [ ] Create login sequence diagram.
+- [ ] Create report creation sequence diagram.
+- [ ] Create help participation sequence diagram.
+- [ ] Include relevant validation steps.
+- [ ] Include relevant alternative/error flows.
+- [ ] Verify method names and call order against the actual code.
+- [ ] Add diagrams to the school documentation.
+
+### 11.5 — OOP and FP Explanation
+
+**Status: Partially documented**
+
+#### OOP Tasks
+
+- [x] Identify abstraction in the report model.
+- [x] Identify inheritance in report subclasses.
+- [x] Identify polymorphism in report handling.
+- [x] Identify encapsulation in models and services.
+- [x] Identify repository interfaces.
+- [ ] Add concrete code examples to the school report.
+- [ ] Explain why these design choices were made.
+
+#### FP Tasks
+
+- [x] Identify use of `filter`.
+- [x] Identify use of `map`.
+- [x] Identify use of `count`.
+- [x] Identify use of `associate`.
+- [x] Identify use of `sortedWith`.
+- [x] Identify use of `compareBy` and `thenBy`.
+- [ ] Add concrete code examples to the school report.
+- [ ] Explain the benefits of functional collection operations.
+
+### 11.6 — School Report
+
+**Status: Pending**
+
+#### Tasks
+
+- [ ] Describe the project goal.
+- [ ] Describe the functional requirements.
+- [ ] Explain the architecture.
+- [ ] Explain the database design.
+- [ ] Explain authentication and authorization.
+- [ ] Explain OOP concepts.
+- [ ] Explain FP concepts.
+- [ ] Include UML diagrams.
+- [ ] Include sequence diagrams.
+- [ ] Explain testing strategy.
+- [ ] Include relevant test evidence.
+- [ ] Describe development decisions.
+- [ ] Reflect on challenges and improvements.
+- [ ] Check the official assessment rubric.
+
+### 11.7 — Demonstration Video
+
+**Status: Pending**
+
+#### Suggested Demonstration
+
+1. Introduce Brul2.
+2. Explain the technology stack.
+3. Show the project structure.
+4. Start the API.
+5. Demonstrate the health endpoint.
+6. Register a user.
+7. Log in and obtain a JWT.
+8. Create a report.
+9. Search and retrieve reports.
+10. Update a report.
+11. Demonstrate voting.
+12. Demonstrate help participation.
+13. Demonstrate capacity validation.
+14. Show the automated test results.
+15. Briefly explain the architecture and UML diagrams.
+
+#### Tasks
+
+- [ ] Prepare a demonstration script.
+- [ ] Prepare example requests.
+- [ ] Record the demonstration.
+- [ ] Verify audio and video quality.
+- [ ] Check the required video length.
+- [ ] Export the final video.
+
+### 11.8 — Final Delivery
+
+**Status: Pending**
+
+#### Tasks
+
+- [ ] Verify the README.
+- [ ] Verify the ROADMAP.
+- [ ] Verify UML diagrams.
+- [ ] Verify sequence diagrams.
+- [ ] Verify the school report.
+- [ ] Verify the demonstration video.
+- [ ] Run all automated tests.
+- [ ] Confirm the final test count.
+- [ ] Verify configuration files.
+- [ ] Verify no secrets are committed.
+- [ ] Check Git status.
+- [ ] Commit final documentation changes.
+- [ ] Push changes to GitHub.
+- [ ] Verify the repository is accessible.
+- [ ] Submit all required deliverables.
+
+#### Suggested Commit
+
+```text
+docs: finalize Brul2 documentation
+```
+
+---
+
+# Implemented API Summary
+
+## Health
+
+```http
+GET /api/v1/health
+```
+
+## Authentication
+
+```http
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+```
+
+## Reports
+
+```http
+GET    /api/v1/reports
+GET    /api/v1/reports/{id}
+POST   /api/v1/reports
+PUT    /api/v1/reports/{id}
+DELETE /api/v1/reports/{id}
+```
+
+## Voting
+
+```http
+GET    /api/v1/reports/{id}/votes
+PUT    /api/v1/reports/{id}/vote
+GET    /api/v1/reports/{id}/vote/me
+DELETE /api/v1/reports/{id}/vote
+```
+
+## Help Participation
+
+```http
+GET    /api/v1/reports/{id}/participants
+GET    /api/v1/reports/{id}/participants/list
+POST   /api/v1/reports/{id}/participants
+DELETE /api/v1/reports/{id}/participants/me
+```
+
+## Authentication Summary
+
+Public endpoints:
+
+- Health check.
+- Registration.
+- Login.
+- Report retrieval and searching.
+- Vote summaries.
+- Participation summaries and lists.
+
+Authenticated endpoints:
+
+- Report creation.
+- Report updates by the owner.
+- Report deletion by the owner or ADMIN.
+- Voting.
+- Joining help requests.
+- Leaving help requests.
+
+---
+
+# Architecture
+
+Brul2 uses a feature-based architecture.
+
+## Main Flow
+
+```text
+HTTP Request
+     |
+     v
+Ktor Routes
+     |
+     v
+Services
+     |
+     v
+Repository Interfaces
+     |
+     v
+Exposed Repositories
+     |
+     v
+H2 Database
+```
+
+## Main Packages
+
+| Package | Responsibility |
+|---|---|
+| `config` | Application configuration |
+| `common` | Shared technical functionality |
+| `database` | Database initialization |
+| `plugins` | Ktor routing and error handling |
+| `security` | Password hashing and JWT |
+| `features/report` | Report models, CRUD, search and status rules |
+| `features/user` | User model and persistence |
+| `features/auth` | Registration and login |
+| `features/vote` | Voting and vote summaries |
+| `features/help` | Help participation and capacity |
+
+## Design Principles
+
+- Routes handle HTTP requests and responses.
+- Services implement business rules.
+- Repository interfaces define persistence operations.
+- Exposed repositories access the database.
+- Domain models validate their own properties.
+- Authentication and authorization protect operations.
+- Tests verify behavior at multiple layers.
+
+---
+
+# Development Workflow
+
+Follow these steps for each remaining checkpoint:
+
+1. Review the requirement.
+2. Identify relevant existing functionality.
+3. Define meaningful test scenarios.
+4. Make the smallest necessary changes.
+5. Run automated tests.
+6. Manually verify relevant behavior.
+7. Update documentation.
+8. Check Git status.
+9. Commit completed work.
+10. Push to GitHub when ready.
+
+## Useful Commands
+
+Run all tests:
+
+```bash
+kotlin test
+```
+
+Check Git status:
 
 ```bash
 git status
-kotlin test
+```
+
+Stage changes:
+
+```bash
 git add .
-git commit -m "type: describe completed checkpoint"
+```
+
+Commit changes:
+
+```bash
+git commit -m "type: describe completed work"
+```
+
+Push changes:
+
+```bash
 git push
 ```
 
-Commit naming conventions:
+## Commit Naming Conventions
 
-- `chore:` Project setup and configuration.
-- `feat:` New functionality.
-- `fix:` Bug fixes.
-- `test:` Tests and test improvements.
-- `refactor:` Code improvements without changing behavior.
-- `docs:` Documentation updates.
+| Prefix | Purpose |
+|---|---|
+| `chore:` | Setup and configuration |
+| `feat:` | New functionality |
+| `fix:` | Bug fixes |
+| `test:` | Tests and test improvements |
+| `refactor:` | Code improvements without behavior changes |
+| `docs:` | Documentation |
 
-Only commit a checkpoint when:
+Only commit when:
+
 - The project compiles.
 - Relevant tests pass.
 - Existing functionality still works.
@@ -420,37 +1273,76 @@ Only commit a checkpoint when:
 
 ---
 
-## Architecture
+# Test Milestones
 
-Brul2 uses a feature-based project structure.
+| Milestone | Passing Tests |
+|---|---:|
+| After Checkpoint 7 | 239 |
+| After Checkpoint 8 | 257 estimated |
+| After Checkpoint 9 | 263 estimated |
+| After Checkpoint 10.1 | 266 |
+| After Checkpoint 10.2 | **268 confirmed** |
 
-Each feature follows this flow:
-
-`Routes → Services → Repository Interfaces → Exposed Repositories → H2`
-
-Main packages:
-
-- `config` — Application configuration.
-- `common` — Shared technical functionality.
-- `database` — Database connection and initialization.
-- `security` — Shared authentication configuration.
-- `features/report` — Report management and domain models.
-- `features/user` — User management.
-- `features/auth` — Registration and login.
-- `features/vote` — Report voting.
-- `features/help` — Help request participation and capacity summaries.
-
-Features are added only when needed.
+The intermediate totals for Checkpoints 8 and 9 are based on the number of tests added. The final total of **268 passing tests** was confirmed after Checkpoint 10.2.
 
 ---
 
-## Current Next Step
+# Current Next Step
 
-**Checkpoint 10 — Testing & Quality Review.**
+## Checkpoint 10.3 — Final Quality Review
 
-1. Add validation to prevent reducing help request capacity below the current participant count.
-2. Confirm whether status transitions apply to all reports or only help requests.
-3. Manually test the registered endpoints in the running application.
-4. Record the exact final test count, then proceed to Checkpoint 11 documentation.
+The next step is to perform a final review of the existing application.
 
-**Progress:** Checkpoints 1–9 are implemented. The user confirmed all tests passing after Checkpoint 9. The expected total is **263 tests** (239 after Checkpoint 7 + 18 in Checkpoint 8 + 6 in Checkpoint 9), but the exact count was not explicitly confirmed. Git commits, README updates and manual API verification have not been independently confirmed.
+### Priorities
+
+1. Verify the main API endpoints manually.
+2. Confirm the status transition requirements.
+3. Review authentication and authorization.
+4. Check database initialization and cascade deletion.
+5. Review configuration and code quality.
+6. Run all 268 tests again.
+
+After this review, proceed to **Checkpoint 11 — Documentation & Delivery**.
+
+### First Documentation Deliverable
+
+Create the **UML class diagram** showing:
+
+- `Report`
+- `SafetyReport`
+- `NuisanceReport`
+- `HelpRequest`
+- Relevant repository interfaces
+- Important model relationships
+
+Then create the UML package diagram and three sequence diagrams.
+
+---
+
+# Latest Progress
+
+**Date:** 20 October 2026
+
+**Completed:**
+
+- Checkpoints 1–9.
+- Checkpoint 10.1 — Volunteer Capacity Validation.
+- Checkpoint 10.2 — Volunteer Capacity API Integration Tests.
+- Full automated test suite: **268 passed**.
+- Volunteer capacity validation changes committed.
+- README updated.
+- ROADMAP updated.
+
+**Remaining:**
+
+- Checkpoint 10.3 — Final Quality Review.
+- Final README verification.
+- UML class diagram.
+- UML package diagram.
+- Three sequence diagrams.
+- OOP and FP explanations for the school report.
+- School report.
+- Demonstration video.
+- Final GitHub and submission checks.
+
+**Project status:** Core implementation completed; final quality review and school deliverables remain.
