@@ -15,6 +15,9 @@ import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.routes.reportRoutes
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.vote.repository.ExposedVoteRepository
+import nl.brul.api.features.vote.routes.voteRoutes
+import nl.brul.api.features.vote.service.VoteService
 import nl.brul.api.security.BCryptPasswordHasher
 import nl.brul.api.security.JwtService
 import org.jetbrains.exposed.sql.Database
@@ -31,7 +34,17 @@ fun Application.configureRouting(
     jwtService: JwtService
 ) {
     val reportRepository = ExposedReportRepository(database)
-    val reportService = ReportService(reportRepository)
+    val voteRepository = ExposedVoteRepository(database)
+
+    val reportService = ReportService(
+        repository = reportRepository,
+        voteRepository = voteRepository
+    )
+
+    val voteService = VoteService(
+        voteRepository = voteRepository,
+        reportRepository = reportRepository
+    )
 
     val userRepository = ExposedUserRepository(database)
     val passwordHasher = BCryptPasswordHasher()
@@ -43,6 +56,7 @@ fun Application.configureRouting(
 
     routing {
         route("/api/v1") {
+
             get("/health") {
                 call.respond(
                     HttpStatusCode.OK,
@@ -54,6 +68,11 @@ fun Application.configureRouting(
             }
 
             reportRoutes(reportService)
+
+            voteRoutes(
+                voteService = voteService,
+                reportService = reportService
+            )
 
             authRoutes(
                 authService = authService,

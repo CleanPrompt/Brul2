@@ -10,7 +10,8 @@ enum class ReportSort {
     ID_DESC,
     NEAREST,
     NEWEST,
-    MOST_VIEWED
+    MOST_VIEWED,
+    MOST_LIKED
 }
 
 data class ReportSearch(
