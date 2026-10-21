@@ -3,12 +3,14 @@ package nl.brul.api.features.user.repository
 
 import nl.brul.api.features.user.model.NewUser
 import nl.brul.api.features.user.model.User
+import nl.brul.api.features.user.model.UserRole
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 import java.util.Locale
 
 class ExposedUserRepository(
@@ -57,6 +59,28 @@ class ExposedUserRepository(
             .singleOrNull()
             ?.toUser()
     }
+
+    override fun findAll(): List<User> = transaction(database) {
+        UsersTable
+            .selectAll()
+            .orderBy(UsersTable.id)
+            .map { it.toUser() }
+    }
+
+    override fun updateRole(id: Long, role: UserRole): User? =
+        transaction(database) {
+            val updatedRows = UsersTable.update(
+                where = { UsersTable.id eq id }
+            ) {
+                it[UsersTable.role] = role
+            }
+
+            if (updatedRows == 0) {
+                null
+            } else {
+                findById(id)
+            }
+        }
 
     private fun ResultRow.toUser(): User = User(
         id = this[UsersTable.id],

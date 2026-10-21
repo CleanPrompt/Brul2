@@ -3,6 +3,7 @@ package nl.brul.api.features.auth.service
 
 import nl.brul.api.features.user.model.User
 import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.model.UserRole
 import nl.brul.api.features.user.repository.UserRepository
 import nl.brul.api.security.PasswordHasher
 import kotlin.test.Test
@@ -44,6 +45,17 @@ class AuthServiceTest {
             return users.values.firstOrNull {
                 it.email.equals(email, ignoreCase = true)
             }
+        }
+
+        override fun findAll(): List<User> {
+            return users.values.sortedBy { it.id }
+        }
+
+        override fun updateRole(id: Long, role: UserRole): User? {
+            val user = users[id] ?: return null
+            val updatedUser = user.copy(role = role)
+            users[id] = updatedUser
+            return updatedUser
         }
     }
 

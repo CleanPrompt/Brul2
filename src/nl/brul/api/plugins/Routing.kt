@@ -1,4 +1,3 @@
-
 // src/nl/brul/api/plugins/Routing.kt
 package nl.brul.api.plugins
 
@@ -19,6 +18,8 @@ import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.routes.reportRoutes
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.routes.userRoutes
+import nl.brul.api.features.user.service.UserService
 import nl.brul.api.features.vote.repository.ExposedVoteRepository
 import nl.brul.api.features.vote.routes.voteRoutes
 import nl.brul.api.features.vote.service.VoteService
@@ -66,9 +67,10 @@ fun Application.configureRouting(
         passwordHasher = passwordHasher
     )
 
+    val userService = UserService(userRepository)
+
     routing {
         route("/api/v1") {
-
             get("/health") {
                 call.respond(
                     HttpStatusCode.OK,
@@ -93,6 +95,8 @@ fun Application.configureRouting(
                 jwtService = jwtService,
                 userRepository = userRepository
             )
+
+            userRoutes(userService)
         }
     }
 }

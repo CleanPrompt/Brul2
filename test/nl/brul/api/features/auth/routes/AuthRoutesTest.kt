@@ -3,6 +3,7 @@ package nl.brul.api.features.auth.routes
 
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -13,13 +14,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import nl.brul.api.features.auth.service.AuthService
-import nl.brul.api.features.user.model.User
 import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.model.User
+import nl.brul.api.features.user.model.UserRole
 import nl.brul.api.features.user.repository.UserRepository
 import nl.brul.api.plugins.configureErrorHandling
 import nl.brul.api.plugins.configureSerialization
 import nl.brul.api.security.PasswordHasher
-import io.ktor.client.statement.bodyAsText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -56,6 +57,17 @@ class AuthRoutesTest {
             return users.values.firstOrNull {
                 it.email.equals(email, ignoreCase = true)
             }
+        }
+
+        override fun findAll(): List<User> {
+            return users.values.sortedBy { it.id }
+        }
+
+        override fun updateRole(id: Long, role: UserRole): User? {
+            val user = users[id] ?: return null
+            val updatedUser = user.copy(role = role)
+            users[id] = updatedUser
+            return updatedUser
         }
     }
 
