@@ -33,6 +33,9 @@ import nl.brul.api.features.report.dto.toNewReport
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.repository.ReportsTable
 import nl.brul.api.features.report.service.ReportService
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.features.vote.dto.VoteResponse
 import nl.brul.api.features.vote.dto.VoteSummaryResponse
 import nl.brul.api.features.vote.repository.ExposedVoteRepository
@@ -82,8 +85,24 @@ class VoteApiIntegrationTest {
 
         transaction(database) {
             SchemaUtils.create(
+                UsersTable,
                 ReportsTable,
                 VotesTable
+            )
+        }
+
+        // Create four users for report ownership and voting.
+        val userRepository = ExposedUserRepository(database)
+
+        repeat(4) { index ->
+            val number = index + 1
+
+            userRepository.create(
+                NewUser(
+                    username = "testuser$number",
+                    email = "testuser$number@example.com",
+                    passwordHash = "test-password-hash"
+                )
             )
         }
 

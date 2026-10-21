@@ -11,6 +11,9 @@ import nl.brul.api.features.report.repository.ReportsTable
 import nl.brul.api.features.report.service.ReportSearch
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.report.service.ReportSort
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.features.vote.model.VoteType
 import nl.brul.api.features.vote.repository.ExposedVoteRepository
 import nl.brul.api.features.vote.repository.VotesTable
@@ -31,7 +34,26 @@ class VoteSortingIntegrationTest {
         )
 
         transaction(database) {
-            SchemaUtils.create(ReportsTable, VotesTable)
+            SchemaUtils.create(
+                UsersTable,
+                ReportsTable,
+                VotesTable
+            )
+        }
+
+        // Create users with IDs 1 through 5 for foreign key constraints.
+        val userRepository = ExposedUserRepository(database)
+
+        repeat(5) { index ->
+            val userNumber = index + 1
+
+            userRepository.create(
+                NewUser(
+                    username = "testuser$userNumber",
+                    email = "testuser$userNumber@example.com",
+                    passwordHash = "test-password-hash"
+                )
+            )
         }
 
         val reportRepository = ExposedReportRepository(database)

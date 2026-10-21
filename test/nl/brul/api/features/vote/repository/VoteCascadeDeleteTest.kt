@@ -11,6 +11,9 @@ import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.toNewReport
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.repository.ReportsTable
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.features.vote.model.VoteType
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -35,8 +38,24 @@ class VoteCascadeDeleteTest {
 
         transaction(database) {
             SchemaUtils.create(
+                UsersTable,
                 ReportsTable,
                 VotesTable
+            )
+        }
+
+        // Create users with IDs 1, 2 and 3 for foreign key constraints.
+        val userRepository = ExposedUserRepository(database)
+
+        repeat(3) { index ->
+            val userNumber = index + 1
+
+            userRepository.create(
+                NewUser(
+                    username = "testuser$userNumber",
+                    email = "testuser$userNumber@example.com",
+                    passwordHash = "test-password-hash"
+                )
             )
         }
 
@@ -49,7 +68,8 @@ class VoteCascadeDeleteTest {
             transaction(database) {
                 SchemaUtils.drop(
                     VotesTable,
-                    ReportsTable
+                    ReportsTable,
+                    UsersTable
                 )
             }
         }
@@ -74,7 +94,6 @@ class VoteCascadeDeleteTest {
     @Test
     fun `deleting report removes all associated votes`() =
         withRepositories { reports, votes ->
-
             val reportId = reports.createTestReport(
                 "Unsafe crossing"
             )
@@ -109,7 +128,6 @@ class VoteCascadeDeleteTest {
     @Test
     fun `deleting one report preserves votes on another report`() =
         withRepositories { reports, votes ->
-
             val firstReportId = reports.createTestReport(
                 "First crossing"
             )
@@ -157,7 +175,6 @@ class VoteCascadeDeleteTest {
     @Test
     fun `database rejects vote for nonexistent report`() =
         withRepositories { _, votes ->
-
             assertFailsWith<Exception> {
                 votes.save(
                     reportId = 999999,

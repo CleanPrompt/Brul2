@@ -1,12 +1,12 @@
 // src/nl/brul/api/database/DatabaseFactory.kt
 package nl.brul.api.database
 
-import nl.brul.api.features.help.repository.HelpParticipationsTable
-import nl.brul.api.features.vote.repository.VotesTable
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
+import nl.brul.api.features.help.repository.HelpParticipationsTable
 import nl.brul.api.features.report.repository.ReportsTable
 import nl.brul.api.features.user.repository.UsersTable
+import nl.brul.api.features.vote.repository.VotesTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -30,8 +30,8 @@ object DatabaseFactory {
 
         transaction(database) {
             SchemaUtils.create(
-                ReportsTable,
                 UsersTable,
+                ReportsTable,
                 VotesTable,
                 HelpParticipationsTable
             )

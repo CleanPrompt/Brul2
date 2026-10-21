@@ -12,6 +12,9 @@ import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.toNewReport
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.repository.ReportsTable
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.repository.UsersTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -33,8 +36,24 @@ class HelpParticipationRepositoryTest {
 
         transaction(database) {
             SchemaUtils.create(
+                UsersTable,
                 ReportsTable,
                 HelpParticipationsTable
+            )
+        }
+
+        // Create users with IDs 1, 2 and 3 for foreign key constraints.
+        val userRepository = ExposedUserRepository(database)
+
+        repeat(3) { index ->
+            val userNumber = index + 1
+
+            userRepository.create(
+                NewUser(
+                    username = "testuser$userNumber",
+                    email = "testuser$userNumber@example.com",
+                    passwordHash = "test-password-hash"
+                )
             )
         }
 
@@ -48,7 +67,8 @@ class HelpParticipationRepositoryTest {
             transaction(database) {
                 SchemaUtils.drop(
                     HelpParticipationsTable,
-                    ReportsTable
+                    ReportsTable,
+                    UsersTable
                 )
             }
         }

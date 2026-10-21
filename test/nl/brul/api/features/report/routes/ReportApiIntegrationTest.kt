@@ -36,6 +36,9 @@ import nl.brul.api.features.report.dto.UpdateReportRequest
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.repository.ReportsTable
 import nl.brul.api.features.report.service.ReportService
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.repository.ExposedUserRepository
+import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.plugins.configureErrorHandling
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -71,7 +74,25 @@ class ReportApiIntegrationTest {
         )
 
         transaction(database) {
-            SchemaUtils.create(ReportsTable)
+            SchemaUtils.create(
+                UsersTable,
+                ReportsTable
+            )
+        }
+
+        // Create users with IDs 1 and 2 for foreign key constraints.
+        val userRepository = ExposedUserRepository(database)
+
+        repeat(2) { index ->
+            val userNumber = index + 1
+
+            userRepository.create(
+                NewUser(
+                    username = "testuser$userNumber",
+                    email = "testuser$userNumber@example.com",
+                    passwordHash = "test-password-hash"
+                )
+            )
         }
 
         val repository = ExposedReportRepository(database)
