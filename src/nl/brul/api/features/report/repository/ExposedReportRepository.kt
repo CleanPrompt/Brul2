@@ -3,9 +3,9 @@ package nl.brul.api.features.report.repository
 
 import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.Location
+import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
-import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
@@ -13,6 +13,7 @@ import nl.brul.api.features.report.model.SafetyReport
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.plus
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -66,6 +67,25 @@ class ExposedReportRepository(
             .singleOrNull()
             ?.toReport()
     }
+
+    override fun findByIdAndIncrementViews(id: Long): Report? =
+        transaction(database) {
+            val updatedRows = ReportsTable.update(
+                where = { ReportsTable.id eq id }
+            ) {
+                it[viewCount] = viewCount + 1
+            }
+
+            if (updatedRows == 0) {
+                return@transaction null
+            }
+
+            ReportsTable
+                .selectAll()
+                .where { ReportsTable.id eq id }
+                .singleOrNull()
+                ?.toReport()
+        }
 
     override fun update(report: Report): Boolean = transaction(database) {
         val updatedRows = ReportsTable.update(

@@ -1,4 +1,3 @@
-
 // src/nl/brul/api/features/report/service/ReportService.kt
 package nl.brul.api.features.report.service
 
@@ -28,6 +27,14 @@ class ReportService(
         }
 
         return repository.findById(id)
+    }
+
+    fun findByIdAndIncrementViews(id: Long): Report? {
+        require(id > 0) {
+            "Report ID must be positive."
+        }
+
+        return repository.findByIdAndIncrementViews(id)
     }
 
     fun update(report: Report): Boolean {

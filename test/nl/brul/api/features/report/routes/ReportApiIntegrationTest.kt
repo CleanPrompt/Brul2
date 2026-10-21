@@ -153,6 +153,7 @@ class ReportApiIntegrationTest {
         )
 
         assertEquals(1L, createdReport.ownerId)
+        assertEquals(0, createdReport.viewCount)
 
         val retrieved = client.get(
             "/api/v1/reports/${createdReport.id}"
@@ -169,7 +170,7 @@ class ReportApiIntegrationTest {
         assertEquals("Unsafe crossing", retrievedReport.title)
         assertEquals("SAFETY", retrievedReport.type)
         assertEquals("TRAFFIC_SAFETY", retrievedReport.category)
-        assertEquals(0, retrievedReport.viewCount)
+        assertEquals(1, retrievedReport.viewCount)
         assertEquals(1L, retrievedReport.ownerId)
         assertTrue(retrievedReport.createdAt > 0)
     }
@@ -189,6 +190,7 @@ class ReportApiIntegrationTest {
 
         assertEquals(1, reports.size)
         assertEquals("Unsafe crossing", reports.first().title)
+        assertEquals(0, reports.first().viewCount)
     }
 
     @Test
@@ -226,6 +228,14 @@ class ReportApiIntegrationTest {
 
         assertEquals(HttpStatusCode.OK, updated.status)
 
+        val updatedReport = Json.decodeFromString(
+            ReportResponse.serializer(),
+            updated.bodyAsText()
+        )
+
+        // PUT must not increment the view count.
+        assertEquals(original.viewCount, updatedReport.viewCount)
+
         val retrieved = client.get(
             "/api/v1/reports/${original.id}"
         )
@@ -239,7 +249,7 @@ class ReportApiIntegrationTest {
         assertEquals("IN_PROGRESS", report.status)
         assertEquals(false, report.urgent)
         assertEquals(original.createdAt, report.createdAt)
-        assertEquals(original.viewCount, report.viewCount)
+        assertEquals(original.viewCount + 1, report.viewCount)
         assertEquals(original.ownerId, report.ownerId)
     }
 

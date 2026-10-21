@@ -1,5 +1,18 @@
 # Brul2 — UML Diagram Guidelines
 
+docs/uml/
+├── 01a-report-class-diagram.puml
+├── 01b-user-auth-class-diagram.puml
+├── 02-database-erd.puml
+├── 03-api-package-diagram.puml
+├── 03b-report-package-diagram.puml
+├── 04-sequence-authentication.puml
+├── 05-sequence-create-report.puml
+├── 06-sequence-join-help-request.puml
+├── 07-sequence-update-report.puml
+└── 08-sequence-vote.puml
+
+
 ## 1. General Principles
 
 All Brul2 diagrams follow the same visual and technical conventions.

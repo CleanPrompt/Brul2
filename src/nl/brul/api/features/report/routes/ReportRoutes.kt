@@ -87,7 +87,9 @@ fun Route.reportRoutes(service: ReportService) {
 
         get("/{id}") {
             val id = parseReportId(call.parameters["id"])
-            val report = service.findById(id)
+
+            // Only a successful detail request counts as a view.
+            val report = service.findByIdAndIncrementViews(id)
 
             if (report == null) {
                 call.respond(HttpStatusCode.NotFound)
@@ -175,7 +177,8 @@ fun Route.reportRoutes(service: ReportService) {
                 }
 
                 val isOwner = existing.ownerId == userId
-                val isAdmin = principal.payload.getClaim("role").asString() == "ADMIN"
+                val isAdmin =
+                    principal.payload.getClaim("role").asString() == "ADMIN"
 
                 if (!isOwner && !isAdmin) {
                     call.respond(HttpStatusCode.Forbidden)
