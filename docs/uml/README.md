@@ -1,6 +1,7 @@
 # Brul2 — UML Diagram Guidelines
 
 docs/uml/
+├── 00-use-case-diagram.puml
 ├── 01a-report-class-diagram.puml
 ├── 01b-user-auth-class-diagram.puml
 ├── 02-database-erd.puml
@@ -37,7 +38,7 @@ The project contains eight planned diagrams.
 | Number | Diagram | Filename |
 |---|---|---|
 | 01 | Report Domain Class Diagram | `01-class-diagram.puml` |
-| 02 | Database ERD | `02-database-erd.puml` |
+| 02 | Database ERD | `02-database-erd.mmd` |
 | 03 | Package Diagram | `03-package-diagram.puml` |
 | 04 | Authentication Sequence Diagram | `04-sequence-authentication.puml` |
 | 05 | Create Report Sequence Diagram | `05-sequence-create-report.puml` |
