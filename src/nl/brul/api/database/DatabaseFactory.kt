@@ -37,6 +37,14 @@ object DatabaseFactory {
             )
         }
 
+        val shouldSeed = config.propertyOrNull("database.seed")
+            ?.getString()
+            ?.toBooleanStrictOrNull() ?: true
+
+        if (shouldSeed) {
+            DatabaseSeeder.seed(database)
+        }
+
         application.log.info("Database initialized.")
 
         return database
