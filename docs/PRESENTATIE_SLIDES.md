@@ -61,7 +61,7 @@ style: |
 ### Schakel over naar IntelliJ IDEA:
 1. **Run All Tests:**
    - Demonstratie van ~35 geautomatiseerde unittests en integratietests.
-2. **End-to-End User Flow (`../demo_assessment.http`):**
+2. **End-to-End User Flow (`demo_assessment.http`):**
    - Inloggen als burgers (JWT Token creatie).
    - Melding aanmaken (Hulpvraag voor 2 vrijwilligers).
    - Vrijwilliger aanmelden & dynamische capaciteitsafname (`201 Created`).
