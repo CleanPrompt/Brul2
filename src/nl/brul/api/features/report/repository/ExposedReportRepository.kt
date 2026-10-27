@@ -21,6 +21,19 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 
+/**
+ * Laag: repository (het geheugen).
+ *
+ * De echte implementatie van ReportRepository, met de Exposed-bibliotheek en een H2-database.
+ * Alles gebeurt in een `transaction`: gaat er iets mis, dan wordt alles teruggedraaid.
+ *
+ * - Nieuwe meldingen krijgen status OPEN, de huidige tijd en 0 views.
+ * - `update` werkt alleen als het type gelijk blijft.
+ * - `findByIdAndIncrementViews` telt de view op in de database zelf.
+ *
+ * De klok (`currentTimeMillis`) komt via de constructor binnen, zodat tests een vaste tijd kunnen
+ * meegeven.
+ */
 class ExposedReportRepository(
     private val database: Database,
     private val currentTimeMillis: () -> Long = System::currentTimeMillis
@@ -130,6 +143,11 @@ class ExposedReportRepository(
         } > 0
     }
 
+    /**
+     * Zet een databaserij om naar het juiste soort Report.
+     * De kolom `type` bepaalt of het een SafetyReport, NuisanceReport of HelpRequest wordt.
+     * Zo komt er uit de database altijd weer een gecontroleerd domeinobject.
+     */
     private fun ResultRow.toReport(): Report {
         val id = this[ReportsTable.id]
         val title = this[ReportsTable.title]

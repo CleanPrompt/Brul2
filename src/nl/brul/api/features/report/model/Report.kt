@@ -1,6 +1,20 @@
 // src/nl/brul/api/features/report/model/Report.kt
 package nl.brul.api.features.report.model
 
+/**
+ * Laag: model (het domein).
+ *
+ * Abstracte ouder van alle meldingen. Bevat wat elke melding heeft:
+ * id, titel, beschrijving, categorie, locatie, status, aanmaaktijd, aantal views en eigenaar.
+ * In `init` staan de algemene regels: id groter dan 0, titel en beschrijving niet leeg, aanmaaktijd
+ * groter dan 0, views niet negatief, eigenaar positief of leeg.
+ *
+ * Waarom abstract? Een "melding in het algemeen" bestaat niet; het is altijd een SafetyReport,
+ * NuisanceReport of HelpRequest.
+ * Waarom geen interface? Een interface kan geen gedeelde velden en geen gedeelde `init`-controle
+ * hebben.
+ * Alle velden zijn `val`: een melding verandert niet, een update maakt een nieuw object.
+ */
 abstract class Report(
     val id: Long,
     val title: String,
@@ -33,7 +47,15 @@ abstract class Report(
         }
     }
 
+    /**
+     * Welk soort melding dit is. Elke subklasse vult dit zelf in met `override`.
+     */
     abstract val type: ReportType
 
+    /**
+     * Controleert of de categorie bij dit soort melding past.
+     * Elke subklasse vult dit zelf in en roept het aan in zijn eigen `init`, niet hier in Report:
+     * anders zou het draaien voordat de velden van de subklasse gezet zijn.
+     */
     protected abstract fun validateCategory()
 }

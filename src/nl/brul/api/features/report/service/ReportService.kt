@@ -9,6 +9,16 @@ import nl.brul.api.features.report.repository.ReportRepository
 import nl.brul.api.features.vote.model.VoteType
 import nl.brul.api.features.vote.repository.VoteRepository
 
+/**
+ * Laag: service (de regels).
+ *
+ * Bevat de bedrijfslogica van meldingen en zit tussen de routes en de repository.
+ * Krijgt de repositories via de constructor (dependency injection); in tests geef je
+ * nep-repositories mee.
+ * `voteRepository` is nodig voor sorteren op MOST_LIKED en `helpParticipationRepository` voor de
+ * capaciteitsregel.
+ * In Routing.kt worden ze allebei meegegeven.
+ */
 class ReportService(
     private val repository: ReportRepository,
     private val voteRepository: VoteRepository? = null,
@@ -37,6 +47,16 @@ class ReportService(
         return repository.findByIdAndIncrementViews(id)
     }
 
+    /**
+     * Wijzigt een melding, maar pas na twee controles:
+     *
+     * 1. De statusovergang moet mogen (ReportStatusRules).
+     * 2. Bij een HelpRequest mag `volunteersNeeded` niet lager zijn dan het aantal deelnemers.
+     *
+     * `report is HelpRequest` is een type check; daarna weet Kotlin dat het een HelpRequest is
+     * (smart cast).
+     * Geeft false als de melding niet bestaat.
+     */
     fun update(report: Report): Boolean {
         val existing = repository.findById(report.id)
             ?: return false
@@ -59,6 +79,10 @@ class ReportService(
         return repository.update(report)
     }
 
+    /**
+     * Verwijdert een melding. Stemmen en deelnames verdwijnen automatisch via de database
+     * (CASCADE op de foreign keys), daarom staat hier geen extra code voor.
+     */
     fun delete(id: Long): Boolean {
         require(id > 0) {
             "Report ID must be positive."
@@ -69,6 +93,14 @@ class ReportService(
         return repository.delete(id)
     }
 
+    /**
+     * Zoekt, filtert en sorteert meldingen: functioneel programmeren met `filter` en `sortedWith`.
+     * Begint met alle meldingen en filtert daarna op zoekwoord (titel of beschrijving), type,
+     * categorie en afstand.
+     * `thenBy` is de tiebreaker, zodat de volgorde altijd voorspelbaar is.
+     * Let op: dit gebeurt in het geheugen. Bij veel meldingen zou filteren in de database (WHERE)
+     * sneller zijn.
+     */
     fun search(search: ReportSearch): List<Report> {
         var results = repository.findAll()
 

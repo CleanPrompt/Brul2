@@ -25,6 +25,22 @@ import nl.brul.api.features.report.service.ReportSearch
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.report.service.ReportSort
 
+/**
+ * Laag: routes (de voordeur).
+ *
+ * Koppelt de URL's onder /reports aan code; in Routing.kt komt daar /api/v1 voor.
+ *
+ * - GET /reports: zoeken, filteren en sorteren via query-parameters (query, type, category,
+ *   latitude, longitude, radiusKm, sort)
+ * - GET /reports/{id}: één melding ophalen; telt als view
+ * - POST /reports: nieuwe melding, JWT nodig; de user-id uit het token wordt de eigenaar
+ * - PUT /reports/{id}: wijzigen, alleen door de eigenaar
+ * - DELETE /reports/{id}: verwijderen, door de eigenaar of een ADMIN
+ *
+ * Statuscodes: 200 OK, 201 Created, 204 No Content, 401 niet ingelogd, 403 niet toegestaan, 404
+ * bestaat niet.
+ * Foute invoer geeft een IllegalArgumentException; ErrorHandling maakt daar 400 Bad Request van.
+ */
 fun Route.reportRoutes(service: ReportService) {
 
     route("/reports") {
@@ -198,6 +214,10 @@ fun Route.reportRoutes(service: ReportService) {
     }
 }
 
+/**
+ * Zet het id uit de URL om naar een getal.
+ * Geen geldig positief getal? Dan volgt een IllegalArgumentException, en dus 400 Bad Request.
+ */
 private fun parseReportId(value: String?): Long {
     val id = value?.toLongOrNull()
 
@@ -208,6 +228,11 @@ private fun parseReportId(value: String?): Long {
     return id
 }
 
+/**
+ * Zet een query-parameter zoals "SAFETY" om naar een enum.
+ * Let op: deze functie staat ook in ReportMapper.kt. Dat is dubbele code en dus een verbeterpunt
+ * (DRY).
+ */
 private inline fun <reified T : Enum<T>> parseEnum(
     value: String,
     fieldName: String

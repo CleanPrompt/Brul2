@@ -1,0 +1,144 @@
+BRUL2 - features/report: WAT DOET ELK BESTAND?
+================================================
+
+Verantwoordelijke: Maikel (package features/report)
+Volgorde: zoals in de projectboom van IntelliJ.
+
+
+DE ICOONTJES IN INTELLIJ
+------------------------
+De icoontjes vertellen je al wat elk bestand is:
+
+  blauwe C            een klasse
+  paarse E            een enum
+  groene I            een interface
+  oranje O            een object, waarvan er maar één bestaat
+  Kotlin-bestand      een bestand met losse functies of meerdere dingen erin
+                      (zoals ReportMapper.kt)
+
+
+dto/  -  DE VERTALER TUSSEN JSON EN KOTLIN
+------------------------------------------
+
+CreateReportRequest
+    De JSON die binnenkomt bij een nieuwe melding (POST): type, titel,
+    beschrijving, categorie, coördinaten, en eventueel urgent of
+    volunteersNeeded. Alles staat er nog als tekst of getal in, zonder
+    controle.
+
+ReportMapper.kt
+    De vertaalfuncties.
+    - toNewReport() maakt van een create-request een NewReport.
+    - toReport(existing) maakt van een update-request het juiste soort
+      melding; id, aanmaaktijd, views en eigenaar komen van de bestaande
+      melding, en het type mag niet veranderen.
+    - toResponse() maakt van een melding weer JSON.
+    - parseEnum zet tekst zoals "SAFETY" om naar een enum.
+
+ReportResponse
+    De JSON die de API terugstuurt: alle velden van een melding, plus
+    status, createdAt, viewCount en ownerId.
+
+UpdateReportRequest
+    De JSON bij het wijzigen van een melding (PUT). Dezelfde velden als bij
+    create, plus de nieuwe status.
+
+
+model/  -  HET DOMEIN, WAT EEN MELDING ÍS
+-----------------------------------------
+
+Report
+    De abstracte ouder. Bevat de velden die elke melding heeft en
+    controleert in init de algemene regels: id groter dan 0, titel en
+    beschrijving niet leeg, views niet negatief. Elke subklasse moet type
+    en validateCategory() zelf invullen.
+
+SafetyReport
+    Subklasse voor veiligheidsmeldingen.
+    Toegestane categorieën: THEFT, SUSPICIOUS_SITUATION en TRAFFIC_SAFETY.
+    Extra veld: urgent.
+
+NuisanceReport
+    Subklasse voor overlast.
+    Toegestane categorieën: NOISE, WASTE, VANDALISM en PARKING.
+    Geen extra veld.
+
+HelpRequest
+    Subklasse voor hulpvragen.
+    Toegestane categorieën: GROCERIES, TRANSPORT, MOVING, CHORES en OTHER.
+    Extra veld: volunteersNeeded, minimaal 1.
+
+Location
+    Een plek, met breedte- en lengtegraad die in init gecontroleerd worden.
+    distanceTo() berekent de afstand in km (haversine).
+
+NewReport
+    Een melding vóór het opslaan, dus nog zonder id. Controleert met
+    when (type) of categorie en extra velden bij het soort melding passen.
+
+ReportCategory
+    Enum met de 12 categorieën.
+
+ReportStatus
+    Enum met de statussen: OPEN, IN_PROGRESS en RESOLVED.
+
+ReportType
+    Enum met de drie soorten: SAFETY, NUISANCE en HELP_REQUEST.
+
+
+repository/  -  OPSLAAN IN DE DATABASE
+--------------------------------------
+
+ReportRepository
+    Interface: alleen de lijst met functies (create, findAll, findById,
+    findByIdAndIncrementViews, update, delete). De service kent alleen deze
+    interface, en daardoor kun je in tests een nep-versie gebruiken.
+
+ExposedReportRepository
+    De echte implementatie met Exposed en een H2-database. Alles gebeurt in
+    een transaction. Bij het teruglezen kijkt hij naar de kolom type en
+    maakt het juiste soort melding. De klok krijgt hij mee in de
+    constructor, zodat je die in tests kunt vastzetten.
+
+ReportsTable
+    Beschrijft de tabel reports en zijn kolommen. urgent en
+    volunteers_needed mogen leeg zijn. owner_id verwijst naar users; wordt
+    een gebruiker verwijderd, dan wordt dat veld leeg (SET_NULL).
+
+
+routes/  -  DE VOORDEUR
+-----------------------
+
+ReportRoutes.kt
+    Koppelt URL's aan code.
+    - GET /reports zoekt, filtert en sorteert via de query.
+    - GET /reports/{id} haalt één melding op en telt een view.
+    - POST maakt een melding; daarvoor moet je ingelogd zijn, en je wordt
+      eigenaar via het JWT-pasje.
+    - PUT mag alleen de eigenaar doen.
+    - DELETE mag de eigenaar of een ADMIN doen.
+    Kiest ook de statuscodes: 200, 201, 204, 401, 403 en 404.
+
+
+service/  -  DE REGELS
+----------------------
+
+ReportSearch.kt
+    Bevat twee dingen:
+    - De enum ReportSort met 6 sorteeropties: ID_ASC, ID_DESC, NEAREST,
+      NEWEST, MOST_VIEWED en MOST_LIKED.
+    - De data class ReportSearch met alle zoekwensen; die controleert
+      zichzelf, want een straal of NEAREST vereist een locatie.
+
+ReportService
+    De bedrijfslogica. Krijgt de repository via de constructor (dependency
+    injection).
+    - update() controleert de statusregel en de capaciteitsregel.
+    - delete() laat stemmen en deelnames over aan de database (CASCADE).
+    - search() filtert en sorteert met filter en sortedWith (functioneel
+      programmeren).
+
+ReportStatusRules
+    Een object met één functie, validateTransition(). OPEN mag naar
+    IN_PROGRESS of RESOLVED, IN_PROGRESS alleen naar RESOLVED, en RESOLVED
+    is het eindstation.

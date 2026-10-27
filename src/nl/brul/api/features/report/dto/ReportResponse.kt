@@ -3,6 +3,18 @@ package nl.brul.api.features.report.dto
 
 import kotlinx.serialization.Serializable
 
+/**
+ * Laag: dto (de vertaler tussen JSON en Kotlin).
+ *
+ * De JSON die de API terugstuurt voor één melding: alle velden, plus `status`, `createdAt`,
+ * `viewCount` en `ownerId`.
+ * `urgent` is alleen gevuld bij een SafetyReport en `volunteersNeeded` alleen bij een HelpRequest,
+ * anders `null`.
+ * Wordt gemaakt met `Report.toResponse()` in ReportMapper.kt.
+ *
+ * Waarom een apart DTO? Zo bepaal je zelf wat naar buiten gaat, en blijft het domeinmodel los van
+ * de JSON.
+ */
 @Serializable
 data class ReportResponse(
     val id: Long,

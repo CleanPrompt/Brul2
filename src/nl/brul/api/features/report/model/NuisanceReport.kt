@@ -1,6 +1,13 @@
 // src/nl/brul/api/features/report/model/NuisanceReport.kt
 package nl.brul.api.features.report.model
 
+/**
+ * Laag: model (het domein).
+ *
+ * Overlastmelding, erft van Report.
+ * Toegestane categorieën: NOISE, WASTE, VANDALISM en PARKING.
+ * Geen extra veld.
+ */
 class NuisanceReport(
     id: Long,
     title: String,

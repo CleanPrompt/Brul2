@@ -7,6 +7,16 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/**
+ * Laag: model (het domein).
+ *
+ * Een plek op de kaart. `init` controleert: breedtegraad tussen -90 en 90, lengtegraad tussen -180
+ * en 180.
+ * `distanceTo()` berekent de afstand in km met de haversine-formule, die rekening houdt met dat de
+ * aarde rond is.
+ * De locatie weet dus zelf hoe ver hij van een andere locatie is.
+ * `data class`: Kotlin maakt automatisch equals, toString en copy.
+ */
 data class Location(
     val latitude: Double,
     val longitude: Double

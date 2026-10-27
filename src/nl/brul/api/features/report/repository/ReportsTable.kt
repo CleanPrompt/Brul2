@@ -5,6 +5,18 @@ import nl.brul.api.features.user.repository.UsersTable
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 
+/**
+ * Laag: repository (het geheugen).
+ *
+ * Beschrijft de tabel `reports` in de database. Alle drie de soorten meldingen staan in deze ene
+ * tabel;
+ * de kolom `type` zegt welk soort het is.
+ * `urgent` en `volunteers_needed` mogen leeg zijn (nullable), omdat ze niet bij elk soort horen.
+ * `owner_id` verwijst naar de tabel `users`. Wordt een gebruiker verwijderd, dan wordt dit veld
+ * leeg (SET_NULL)
+ * en blijft de melding bestaan.
+ * `object`: er bestaat maar één tabelbeschrijving.
+ */
 object ReportsTable : Table("reports") {
     val id = long("id").autoIncrement()
 

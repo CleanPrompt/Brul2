@@ -3,6 +3,17 @@ package nl.brul.api.features.report.dto
 
 import kotlinx.serialization.Serializable
 
+/**
+ * Laag: dto (de vertaler tussen JSON en Kotlin).
+ *
+ * De JSON die binnenkomt bij het aanmaken van een nieuwe melding (POST /api/v1/reports).
+ * Alles staat hier nog als simpele tekst en getallen, bijvoorbeeld type = "SAFETY", en wordt nog
+ * niet gecontroleerd.
+ * `toNewReport()` in ReportMapper.kt zet dit om naar een gecontroleerd `NewReport`.
+ *
+ * `urgent` hoort alleen bij SAFETY, `volunteersNeeded` alleen bij HELP_REQUEST.
+ * `@Serializable` laat Kotlin dit automatisch van en naar JSON omzetten.
+ */
 @Serializable
 data class CreateReportRequest(
     val type: String,

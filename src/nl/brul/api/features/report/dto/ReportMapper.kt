@@ -11,6 +11,12 @@ import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.model.NewReport
 
+/**
+ * Hulpfunctie: zet tekst zoals "SAFETY" om naar de bijbehorende enum-waarde.
+ * Bestaat de waarde niet, dan volgt een IllegalArgumentException; ErrorHandling maakt daar 400 Bad
+ * Request van.
+ * Door `reified` werkt deze ene functie voor elk enum-type.
+ */
 private inline fun <reified T : Enum<T>> parseEnum(
     value: String,
     fieldName: String
@@ -22,6 +28,14 @@ private inline fun <reified T : Enum<T>> parseEnum(
     )
 }
 
+/**
+ * Laag: dto (mapper).
+ *
+ * Extension function: zet een CreateReportRequest om naar een NewReport.
+ * Tekst wordt enums (type en categorie) en de coördinaten worden een Location.
+ * Daarna controleert NewReport in zijn `init` zelf of alles klopt.
+ * De ownerId wordt later in de route gezet met `.copy(ownerId = userId)`.
+ */
 fun CreateReportRequest.toNewReport(): NewReport {
     return NewReport(
         type = parseEnum<ReportType>(type, "report type"),
@@ -34,6 +48,15 @@ fun CreateReportRequest.toNewReport(): NewReport {
     )
 }
 
+/**
+ * Zet een UpdateReportRequest om naar het juiste soort Report: SafetyReport, NuisanceReport of
+ * HelpRequest.
+ *
+ * - Het type mag niet veranderen.
+ * - id, createdAt, viewCount en ownerId komen van de bestaande melding, zodat een gebruiker die
+ *   niet kan vervalsen.
+ * - Eerst wordt een NewReport gemaakt, zodat dezelfde controles gelden als bij het aanmaken.
+ */
 fun UpdateReportRequest.toReport(existing: Report): Report {
     val requestedType = parseEnum<ReportType>(type, "report type")
 
@@ -99,6 +122,11 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
     }
 }
 
+/**
+ * Zet een Report om naar een ReportResponse: de JSON die de API terugstuurt.
+ * Met `as?` (veilige cast) worden `urgent` en `volunteersNeeded` alleen ingevuld als ze bij dit
+ * soort melding horen.
+ */
 fun Report.toResponse(): ReportResponse {
     return ReportResponse(
         id = id,

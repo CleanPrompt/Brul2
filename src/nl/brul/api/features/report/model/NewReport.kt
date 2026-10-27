@@ -1,6 +1,18 @@
 // src/nl/brul/api/features/report/model/NewReport.kt
 package nl.brul.api.features.report.model
 
+/**
+ * Laag: model (het domein).
+ *
+ * Een melding vóór het opslaan: nog zonder id, want dat geeft de database.
+ * Controleert in `init` alles al voordat het de database in gaat:
+ * titel en beschrijving niet leeg, de categorie past bij het type, en met `when (type)` de extra
+ * velden:
+ *
+ * - SAFETY: `urgent` verplicht, geen `volunteersNeeded`
+ * - NUISANCE: geen van beide
+ * - HELP_REQUEST: `volunteersNeeded` minimaal 1, geen `urgent`
+ */
 data class NewReport(
     val type: ReportType,
     val title: String,

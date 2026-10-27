@@ -5,6 +5,13 @@ import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportType
 
+/**
+ * Laag: service (de regels).
+ *
+ * De zes manieren om zoekresultaten te sorteren:
+ * ID_ASC, ID_DESC, NEAREST (dichtstbij, locatie verplicht), NEWEST, MOST_VIEWED en MOST_LIKED.
+ * MOST_LIKED gebruikt de stemmen uit de feature vote.
+ */
 enum class ReportSort {
     ID_ASC,
     ID_DESC,
@@ -14,6 +21,14 @@ enum class ReportSort {
     MOST_LIKED
 }
 
+/**
+ * Laag: service (de regels).
+ *
+ * Alle zoekwensen bij elkaar: zoekwoord, type, categorie, locatie, straal en sortering.
+ * Controleert zichzelf in `init`: een straal moet positief en eindig zijn en vereist een locatie;
+ * sorteren op NEAREST vereist ook een locatie.
+ * Wordt in de route gevuld met de query-parameters en doorgegeven aan `ReportService.search()`.
+ */
 data class ReportSearch(
     val query: String? = null,
     val type: ReportType? = null,

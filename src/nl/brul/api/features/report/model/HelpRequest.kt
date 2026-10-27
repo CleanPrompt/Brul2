@@ -1,6 +1,17 @@
 // src/nl/brul/api/features/report/model/HelpRequest.kt
 package nl.brul.api.features.report.model
 
+/**
+ * Laag: model (het domein).
+ *
+ * Hulpvraag, erft van Report.
+ * Toegestane categorieën: GROCERIES, TRANSPORT, MOVING, CHORES en OTHER.
+ * Extra veld: `volunteersNeeded`, minimaal 1; anders volgt een IllegalArgumentException en bestaat
+ * het object nooit.
+ *
+ * De feature help gebruikt deze klasse om deelnemers te beheren.
+ * ReportService zorgt dat `volunteersNeeded` nooit lager wordt dan het aantal deelnemers.
+ */
 class HelpRequest(
     id: Long,
     title: String,

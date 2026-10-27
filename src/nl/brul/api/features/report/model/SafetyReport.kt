@@ -1,6 +1,14 @@
 // src/nl/brul/api/features/report/model/SafetyReport.kt
 package nl.brul.api.features.report.model
 
+/**
+ * Laag: model (het domein).
+ *
+ * Veiligheidsmelding, erft van Report.
+ * Toegestane categorieën: THEFT, SUSPICIOUS_SITUATION en TRAFFIC_SAFETY.
+ * Extra veld: `urgent` (is het dringend?).
+ * De `init` van Report draait eerst; daarna controleert deze klasse de categorie.
+ */
 class SafetyReport(
     id: Long,
     title: String,
