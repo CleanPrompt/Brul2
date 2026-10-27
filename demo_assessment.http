@@ -1,0 +1,210 @@
+### ==============================================================================
+### BRUL2 ASSESSMENT LIVE DEMO SCRIPT (IntelliJ HTTP Client)
+### Avans Hogeschool - INFD-AD-B Periode 1 (Web API met Ktor & Kotlin)
+### ==============================================================================
+### TIP VOOR DE PILOOT:
+### 1. Zorg dat de backend draait: .\kotlin.bat run (poort 8080)
+### 2. Klik op de groene 'Play' knopjes bij elk nummer op volgorde van 1 t/m 7.
+### ==============================================================================
+
+@baseUrl = http://localhost:8080/api/v1
+
+### ------------------------------------------------------------------------------
+### STAP 0: HEALTH CHECK (Verifieer dat Ktor live is)
+### ------------------------------------------------------------------------------
+# @name healthCheck
+GET {{baseUrl}}/health
+Accept: application/json
+
+###
+
+### ------------------------------------------------------------------------------
+### STAP 1: AUTHENTICATIE & JWT TOKENS (Phuc)
+### Inloggen als Anastasia (Wijkbewoner 1) en Bob (Wijkbewoner 2 / Vrijwilliger)
+### ------------------------------------------------------------------------------
+
+# 1a. Login Anastasia (Owner van de hulpvraag)
+# @name loginAnastasia
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "anastasia@example.com",
+  "password": "Password123!"
+}
+
+> {%
+    client.global.set("anastasiaToken", response.body.accessToken);
+    client.log("Token Anastasia opgeslagen: " + response.body.accessToken.substring(0, 15) + "...");
+%}
+
+###
+
+# 1b. Login Bob (Buurtgenoot die hulp gaat aanbieden)
+# @name loginBob
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "bob@example.com",
+  "password": "Password123!"
+}
+
+> {%
+    client.global.set("bobToken", response.body.accessToken);
+    client.log("Token Bob opgeslagen: " + response.body.accessToken.substring(0, 15) + "...");
+%}
+
+### ------------------------------------------------------------------------------
+### STAP 2: INCIDENT / HULPVRAAG AANMAKEN (Maikel)
+### Anastasia plaatst een nieuwe Hulpvraag voor zware boodschappen (2 vrijwilligers)
+### ------------------------------------------------------------------------------
+
+# @name createHelpRequest
+POST {{baseUrl}}/reports
+Content-Type: application/json
+Authorization: Bearer {{anastasiaToken}}
+
+{
+  "type": "HELP_REQUEST",
+  "title": "Boodschappenhulp gezocht",
+  "description": "Ik ben slecht ter been en zoek twee sterke buren voor weekboodschappen bij de Jumbo.",
+  "category": "GROCERIES",
+  "latitude": 51.5855,
+  "longitude": 4.7925,
+  "volunteersNeeded": 2
+}
+
+> {%
+    client.global.set("createdHelpId", response.body.id);
+    client.log("Nieuwe Hulpvraag ID: " + response.body.id);
+%}
+
+### ------------------------------------------------------------------------------
+### STAP 3: VRIJWILLIGERSPARTICIPATIE & CAPACITEIT (Kelvin)
+### Bob bekijkt de status, meldt zich aan, en we zien de capaciteit dynamisch dalen
+### ------------------------------------------------------------------------------
+
+# 3a. Bob bekijkt de publieke deelnamestatus (Moet tonen: volunteersNeeded=2, count=0, status=OPEN)
+GET {{baseUrl}}/reports/{{createdHelpId}}/participants
+Accept: application/json
+
+###
+
+# 3b. Bob meldt zich aan als vrijwilliger met zijn JWT Bearer token
+# @name joinBob
+POST {{baseUrl}}/reports/{{createdHelpId}}/participants
+Authorization: Bearer {{bobToken}}
+Accept: application/json
+
+###
+
+# 3c. Status herladen: Nu is count=1, availablePlaces=1, status=OPEN!
+GET {{baseUrl}}/reports/{{createdHelpId}}/participants
+Accept: application/json
+
+###
+
+# 3d. Deelnemerslijst inzien (toont Bob's user ID)
+GET {{baseUrl}}/reports/{{createdHelpId}}/participants/list
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### STAP 4: BUSINESS RULE VALIDATIE & ERROR HANDLING (Kelvin)
+### NEGATIEVE TEST: Anastasia probeert zich aan te melden op haar EIGEN hulpvraag
+### Verwacht: 403 Forbidden met ApiError via StatusPages plugin!
+### ------------------------------------------------------------------------------
+
+POST {{baseUrl}}/reports/{{createdHelpId}}/participants
+Authorization: Bearer {{anastasiaToken}}
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### STAP 5: COMMUNITY VOTING (Joselyn)
+### Buurtbewoners upvoten de hulpvraag zodat deze op de kaart stijgt
+### ------------------------------------------------------------------------------
+
+# 5a. Bob brengt een stem uit op de hulpvraag (LIKE)
+PUT {{baseUrl}}/reports/{{createdHelpId}}/vote
+Authorization: Bearer {{bobToken}}
+Content-Type: application/json
+
+{
+  "type": "LIKE"
+}
+
+###
+
+# 5b. Vote summary ophalen (Score = 1, likes = 1)
+GET {{baseUrl}}/reports/{{createdHelpId}}/votes
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### STAP 6: ADMIN BEHEER & GEBRUIKERSOVERZICHT (Natasja)
+### Admin logt in om beheerderstaken uit te voeren
+### ------------------------------------------------------------------------------
+
+# 6a. Admin login
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "AdminPassword123!"
+}
+
+> {%
+    client.global.set("adminToken", response.body.accessToken);
+    client.log("Token Admin opgeslagen: " + response.body.accessToken.substring(0, 15) + "...");
+%}
+
+###
+
+# 6b. Admin roept gebruikerslijst op met RBAC autorisatie
+GET {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### STAP 7: VOLLEDIGE TESTDATA TONEN (Voor de examinatoren)
+### Demonstratie van alle vooraf geseede data in de H2 database.
+### De resultaten verschijnen zowel als JSON én netjes gelogd in de IntelliJ console!
+### ------------------------------------------------------------------------------
+
+# 7a. Alle meldingen opvragen (Alle types: SAFETY, NUISANCE, HELP_REQUEST)
+# @name getAllReports
+GET {{baseUrl}}/reports
+Accept: application/json
+
+> {%
+    client.log("=================================================================");
+    client.log("        ALLE GESEEDE MELDINGEN IN H2 DATABASE (TOTAAL: " + response.body.length + ")");
+    client.log("=================================================================");
+    response.body.forEach(function(r) {
+        client.log("ID " + r.id + " | [" + r.type + "] (" + r.category + ") " + r.title + " | Status: " + r.status + " | Views: " + r.viewCount + " | OwnerId: " + r.ownerId);
+    });
+    client.log("=================================================================");
+%}
+
+###
+
+# 7b. Alle geregistreerde gebruikers opvragen (Alleen toegankelijk voor ADMIN)
+# @name getAllUsers
+GET {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+Accept: application/json
+
+> {%
+    client.log("=================================================================");
+    client.log("        ALLE GESEEDE GEBRUIKERS IN H2 DATABASE (TOTAAL: " + response.body.length + ")");
+    client.log("=================================================================");
+    response.body.forEach(function(u) {
+        client.log("User #" + u.id + " | " + u.username + " (" + u.email + ") | ROL: " + u.role);
+    });
+    client.log("=================================================================");
+%}
+
+### ------------------------------------------------------------------------------
+### EINDE LIVE DEMO FLOW
+### ------------------------------------------------------------------------------
