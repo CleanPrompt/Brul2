@@ -17,25 +17,19 @@ import nl.brul.api.features.vote.model.VoteType
 import nl.brul.api.features.vote.repository.VoteRepository
 
 /**
-<<<<<<< Updated upstream
  * Laag: service (de regels).
  *
  * Bevat de bedrijfslogica van meldingen en zit tussen de routes en de repository.
- * Krijgt de repositories via de constructor (dependency injection); in tests geef je
- * nep-repositories mee.
- * `voteRepository` is nodig voor sorteren op MOST_LIKED en `helpParticipationRepository` voor de
- * capaciteitsregel.
- * In Routing.kt worden ze allebei meegegeven.
-=======
- * Use cases for reports.
- *
- * The optional collaborators are supplied by Routing.kt in the real
- * application; tests can leave out what they do not need.
- * - [participationService]: waitlist promotion and cancellations after a
- *   help request changes (R8, R10, R13).
- * - [photoService]: removing photo files with a report (F7) and the
- *   result-photo rule for nuisance reports (F8).
->>>>>>> Stashed changes
+ * Krijgt zijn hulpjes via de constructor (dependency injection); in tests geef je
+ * nep-repositories mee en laat je weg wat je niet nodig hebt.
+ * - `voteRepository`: sorteren op MOST_LIKED.
+ * - `helpParticipationRepository`: de capaciteitsregel (R10).
+ * - `clock`: de huidige tijd; tests geven een vaste klok mee.
+ * - `participationService`: de wachtlijst laten doorschuiven en inschrijvingen annuleren nadat
+ *   een hulpvraag is gewijzigd (R8, R10, R13).
+ * - `photoService`: fotobestanden opruimen met een melding (F7) en de regel dat een
+ *   overlastmelding een resultaatfoto nodig heeft (F8).
+ * In Routing.kt worden ze allemaal meegegeven.
  */
 class ReportService(
     private val repository: ReportRepository,
@@ -77,10 +71,17 @@ class ReportService(
     }
 
     /**
-     * Wijzigt een melding, maar pas na twee controles:
+     * Wijzigt een melding, maar pas na een aantal controles:
      *
-     * 1. De statusovergang moet mogen (ReportStatusRules).
-     * 2. Bij een HelpRequest mag `volunteersNeeded` niet lager zijn dan het aantal deelnemers.
+     * 1. De statusovergang moet mogen (ReportStatusRules); een hulpvraag kan alleen naar
+     *    RESOLVED (R14).
+     * 2. Bij een HelpRequest mag `volunteersNeeded` niet lager zijn dan het aantal deelnemers
+     *    (R10), en ligt het tijdslot vast zodra de hulpvraag begonnen is of er iemand is
+     *    ingeschreven (R12). Zie HelpRequestUpdateRules.
+     * 3. Een NuisanceReport mag pas op RESOLVED als er een resultaatfoto is (F8).
+     *
+     * Na het opslaan van een hulpvraag schuift de wachtlijst door of worden inschrijvingen
+     * geannuleerd (participationService).
      *
      * `report is HelpRequest` is een type check; daarna weet Kotlin dat het een HelpRequest is
      * (smart cast).
@@ -135,8 +136,9 @@ class ReportService(
     }
 
     /**
-     * Verwijdert een melding. Stemmen en deelnames verdwijnen automatisch via de database
-     * (CASCADE op de foreign keys), daarom staat hier geen extra code voor.
+     * Verwijdert een melding. Stemmen, deelnames en foto-rijen verdwijnen automatisch via de
+     * database (CASCADE op de foreign keys).
+     * De fotobestanden op schijf kent de database niet; die ruimt deze functie zelf op (F7).
      */
     fun delete(id: Long): Boolean {
         require(id > 0) {

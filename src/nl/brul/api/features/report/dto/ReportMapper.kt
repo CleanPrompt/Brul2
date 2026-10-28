@@ -31,16 +31,6 @@ private inline fun <reified T : Enum<T>> parseEnum(
     )
 }
 
-<<<<<<< Updated upstream
-/**
- * Laag: dto (mapper).
- *
- * Extension function: zet een CreateReportRequest om naar een NewReport.
- * Tekst wordt enums (type en categorie) en de coördinaten worden een Location.
- * Daarna controleert NewReport in zijn `init` zelf of alles klopt.
- * De ownerId wordt later in de route gezet met `.copy(ownerId = userId)`.
- */
-=======
 private fun parseInstant(value: String, fieldName: String): Instant =
     try {
         Instant.parse(value)
@@ -70,7 +60,15 @@ private fun parseSlot(startsAt: String?, endsAt: String?): TimeSlot? {
     )
 }
 
->>>>>>> Stashed changes
+/**
+ * Laag: dto (mapper).
+ *
+ * Extension function: zet een CreateReportRequest om naar een NewReport.
+ * Tekst wordt enums (type en categorie), de coördinaten worden een Location en
+ * `startsAt` en `endsAt` worden samen een TimeSlot (alleen bij een hulpvraag).
+ * Daarna controleert NewReport in zijn `init` zelf of alles klopt.
+ * De ownerId wordt later in de route gezet met `.copy(ownerId = userId)`.
+ */
 fun CreateReportRequest.toNewReport(): NewReport {
     return NewReport(
         type = parseEnum<ReportType>(type, "report type"),
@@ -161,18 +159,15 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
     }
 }
 
-<<<<<<< Updated upstream
 /**
  * Zet een Report om naar een ReportResponse: de JSON die de API terugstuurt.
- * Met `as?` (veilige cast) worden `urgent` en `volunteersNeeded` alleen ingevuld als ze bij dit
- * soort melding horen.
+ * Met `as?` (veilige cast) worden `urgent`, `volunteersNeeded` en het tijdslot (`startsAt` en
+ * `endsAt`) alleen ingevuld als ze bij dit soort melding horen.
+ * `photoCount` wordt alleen meegegeven bij het ophalen van één melding (GET /reports/{id}).
  */
-fun Report.toResponse(): ReportResponse {
-=======
 fun Report.toResponse(photoCount: Int? = null): ReportResponse {
     val slot = (this as? HelpRequest)?.slot
 
->>>>>>> Stashed changes
     return ReportResponse(
         id = id,
         type = type.name,

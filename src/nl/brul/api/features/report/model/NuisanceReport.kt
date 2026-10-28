@@ -7,6 +7,7 @@ package nl.brul.api.features.report.model
  * Overlastmelding, erft van Report.
  * Toegestane categorieën: NOISE, WASTE, VANDALISM en PARKING.
  * Geen extra veld.
+ * Mag pas naar RESOLVED als er een resultaatfoto bij zit (F8, gecontroleerd in ReportService).
  */
 class NuisanceReport(
     id: Long,

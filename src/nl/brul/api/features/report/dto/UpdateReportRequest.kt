@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
  *
  * De JSON bij het wijzigen van een melding (PUT /api/v1/reports/{id}).
  * Dezelfde velden als CreateReportRequest, plus de nieuwe `status`.
+ * Laat je bij een hulpvraag `startsAt` en `endsAt` weg, dan blijft het tijdslot hetzelfde.
  * `toReport(existing)` in ReportMapper.kt maakt hier het juiste soort Report van.
  */
 @Serializable

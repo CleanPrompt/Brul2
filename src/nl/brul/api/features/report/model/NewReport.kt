@@ -9,9 +9,9 @@ package nl.brul.api.features.report.model
  * titel en beschrijving niet leeg, de categorie past bij het type, en met `when (type)` de extra
  * velden:
  *
- * - SAFETY: `urgent` verplicht, geen `volunteersNeeded`
- * - NUISANCE: geen van beide
- * - HELP_REQUEST: `volunteersNeeded` minimaal 1, geen `urgent`
+ * - SAFETY: `urgent` verplicht, geen `volunteersNeeded` en geen tijdslot
+ * - NUISANCE: geen van drieën
+ * - HELP_REQUEST: `volunteersNeeded` minimaal 1 en een tijdslot (`slot`) verplicht, geen `urgent`
  */
 data class NewReport(
     val type: ReportType,

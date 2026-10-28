@@ -8,8 +8,9 @@ import kotlinx.serialization.Serializable
  *
  * De JSON die de API terugstuurt voor één melding: alle velden, plus `status`, `createdAt`,
  * `viewCount` en `ownerId`.
- * `urgent` is alleen gevuld bij een SafetyReport en `volunteersNeeded` alleen bij een HelpRequest,
- * anders `null`.
+ * `urgent` is alleen gevuld bij een SafetyReport en `volunteersNeeded`, `startsAt` en `endsAt`
+ * alleen bij een HelpRequest, anders `null`.
+ * `photoCount` is alleen gevuld bij het ophalen van één melding (GET /reports/{id}).
  * Wordt gemaakt met `Report.toResponse()` in ReportMapper.kt.
  *
  * Waarom een apart DTO? Zo bepaal je zelf wat naar buiten gaat, en blijft het domeinmodel los van

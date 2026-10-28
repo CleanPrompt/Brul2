@@ -11,7 +11,9 @@ import org.jetbrains.exposed.sql.Table
  * Beschrijft de tabel `reports` in de database. Alle drie de soorten meldingen staan in deze ene
  * tabel;
  * de kolom `type` zegt welk soort het is.
- * `urgent` en `volunteers_needed` mogen leeg zijn (nullable), omdat ze niet bij elk soort horen.
+ * `urgent`, `volunteers_needed`, `slot_start` en `slot_end` mogen leeg zijn (nullable), omdat ze
+ * niet bij elk soort horen. Het tijdslot (`slot_start` en `slot_end`) is alleen gevuld bij een
+ * hulpvraag.
  * `owner_id` verwijst naar de tabel `users`. Wordt een gebruiker verwijderd, dan wordt dit veld
  * leeg (SET_NULL)
  * en blijft de melding bestaan.

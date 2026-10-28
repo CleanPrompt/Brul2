@@ -26,7 +26,6 @@ import nl.brul.api.features.report.service.ReportSearch
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.report.service.ReportSort
 
-<<<<<<< Updated upstream
 /**
  * Laag: routes (de voordeur).
  *
@@ -34,22 +33,23 @@ import nl.brul.api.features.report.service.ReportSort
  *
  * - GET /reports: zoeken, filteren en sorteren via query-parameters (query, type, category,
  *   latitude, longitude, radiusKm, sort)
- * - GET /reports/{id}: één melding ophalen; telt als view
- * - POST /reports: nieuwe melding, JWT nodig; de user-id uit het token wordt de eigenaar
+ * - GET /reports/{id}: één melding ophalen; telt als view en geeft ook het aantal foto's
+ *   (`photoCount`)
+ * - POST /reports: nieuwe melding, JWT nodig; de user-id uit het token wordt de eigenaar.
+ *   Een hulpvraag heeft een tijdslot nodig (`startsAt` en `endsAt`)
  * - PUT /reports/{id}: wijzigen, alleen door de eigenaar
- * - DELETE /reports/{id}: verwijderen, door de eigenaar of een ADMIN
+ * - DELETE /reports/{id}: verwijderen, door de eigenaar of een ADMIN; de foto's gaan mee
+ *
+ * De foto-endpoints staan apart in ReportPhotoRoutes.
  *
  * Statuscodes: 200 OK, 201 Created, 204 No Content, 401 niet ingelogd, 403 niet toegestaan, 404
- * bestaat niet.
+ * bestaat niet, 409 botst met een regel (bijvoorbeeld een tijdslot dat al vastligt).
  * Foute invoer geeft een IllegalArgumentException; ErrorHandling maakt daar 400 Bad Request van.
  */
-fun Route.reportRoutes(service: ReportService) {
-=======
 fun Route.reportRoutes(
     service: ReportService,
     photoService: ReportPhotoService? = null
 ) {
->>>>>>> Stashed changes
 
     route("/reports") {
 

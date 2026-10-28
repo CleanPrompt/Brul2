@@ -1,28 +1,24 @@
 // src/nl/brul/api/features/report/model/HelpRequest.kt
 package nl.brul.api.features.report.model
 
-<<<<<<< Updated upstream
+import java.time.Duration
+
 /**
  * Laag: model (het domein).
  *
  * Hulpvraag, erft van Report.
  * Toegestane categorieën: GROCERIES, TRANSPORT, MOVING, CHORES en OTHER.
- * Extra veld: `volunteersNeeded`, minimaal 1; anders volgt een IllegalArgumentException en bestaat
- * het object nooit.
+ * Extra velden:
+ * - `volunteersNeeded`, minimaal 1;
+ * - `slot`, het tijdslot waarin geholpen wordt, maximaal 8 uur.
+ * Klopt een van beide niet, dan volgt een IllegalArgumentException en bestaat het object nooit.
+ *
+ * Door het tijdslot werkt een hulpvraag als een reservering: vrijwilligers schrijven zich in
+ * voor een tijd, mogen niet op twee overlappende hulpvragen tegelijk staan, en de hulpvraag
+ * doorloopt fases naarmate de tijd verstrijkt (zie HelpRequestBooking in de feature help).
  *
  * De feature help gebruikt deze klasse om deelnemers te beheren.
  * ReportService zorgt dat `volunteersNeeded` nooit lager wordt dan het aantal deelnemers.
-=======
-import java.time.Duration
-
-/**
- * A request for help from neighbours, planned in a fixed [slot].
- *
- * The slot turns a help request into something like a reservation:
- * volunteers sign up for a time, can overlap with other help requests,
- * and the request moves through phases as time passes
- * (see HelpRequestBooking in the help feature).
->>>>>>> Stashed changes
  */
 class HelpRequest(
     id: Long,

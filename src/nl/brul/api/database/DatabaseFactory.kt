@@ -31,13 +31,18 @@ object DatabaseFactory {
 
         createSchema(database)
 
+        val shouldSeed = config.propertyOrNull("database.seed")
+            ?.getString()
+            ?.toBooleanStrictOrNull() ?: true
+
+        if (shouldSeed) {
+            DatabaseSeeder.seed(database)
+        }
+
         application.log.info("Database initialized.")
 
         return database
     }
-<<<<<<< Updated upstream
-}
-=======
 
     /**
      * Creates missing tables and brings an existing local database up to
@@ -57,4 +62,3 @@ object DatabaseFactory {
         }
     }
 }
->>>>>>> Stashed changes

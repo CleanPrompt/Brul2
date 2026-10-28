@@ -32,6 +32,9 @@ import org.jetbrains.exposed.sql.update
  * - Nieuwe meldingen krijgen status OPEN, de huidige tijd en 0 views.
  * - `update` werkt alleen als het type gelijk blijft.
  * - `findByIdAndIncrementViews` telt de view op in de database zelf.
+ * - `findByIdForUpdate` vergrendelt de rij (`SELECT ... FOR UPDATE`) tot het einde van de
+ *   transactie, zodat twee inschrijvingen tegelijk een hulpvraag niet kunnen overboeken.
+ * - Het tijdslot van een hulpvraag staat in de kolommen `slot_start` en `slot_end`.
  *
  * De klok (`currentTimeMillis`) komt via de constructor binnen, zodat tests een vaste tijd kunnen
  * meegeven.

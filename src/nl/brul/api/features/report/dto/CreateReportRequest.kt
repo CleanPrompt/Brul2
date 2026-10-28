@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
  * `toNewReport()` in ReportMapper.kt zet dit om naar een gecontroleerd `NewReport`.
  *
  * `urgent` hoort alleen bij SAFETY, `volunteersNeeded` alleen bij HELP_REQUEST.
+ * `startsAt` en `endsAt` (ISO-8601 in UTC, bijvoorbeeld "2026-11-20T10:00:00Z") horen ook alleen
+ * bij HELP_REQUEST en zijn daar verplicht: samen vormen ze het tijdslot.
  * `@Serializable` laat Kotlin dit automatisch van en naar JSON omzetten.
  */
 @Serializable

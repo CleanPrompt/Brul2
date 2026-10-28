@@ -2,22 +2,15 @@
 package nl.brul.api.features.report.model
 
 /**
-<<<<<<< Updated upstream
  * Laag: model (het domein).
  *
  * De drie soorten meldingen: SAFETY, NUISANCE en HELP_REQUEST.
  * Wordt opgeslagen in de kolom `type`, zodat de repository bij het teruglezen weet welk soort
  * object hij moet maken.
- */
-enum class ReportType {
-    SAFETY,
-    NUISANCE,
-    HELP_REQUEST
-=======
- * The three kinds of reports, each with its own set of categories.
  *
- * The category lists live here once, so NewReport and the report subclasses
- * validate against the same source instead of keeping their own copies.
+ * Elk type kent ook zijn toegestane categorieën (`allowedCategories`). Die lijst staat hier één
+ * keer, zodat NewReport en de subklassen tegen dezelfde bron controleren in plaats van elk een
+ * eigen kopie bij te houden.
  */
 enum class ReportType(
     val allowedCategories: Set<ReportCategory>
@@ -46,5 +39,4 @@ enum class ReportType(
             ReportCategory.OTHER
         )
     )
->>>>>>> Stashed changes
 }

@@ -16,6 +16,8 @@ import nl.brul.api.features.report.model.ReportType
  * - dezelfde status houden mag altijd
  *
  * Mag het niet, dan gooit `require` een IllegalArgumentException, en dat wordt 400 Bad Request.
+ *
+ * Voor een hulpvraag geldt nog een extra regel (R14): zie de tweede `validateTransition`.
  */
 object ReportStatusRules {
 
