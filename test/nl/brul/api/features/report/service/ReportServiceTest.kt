@@ -11,6 +11,7 @@ import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.repository.ReportRepository
+import nl.brul.api.support.TestSlots
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -56,7 +57,8 @@ class ReportServiceTest {
                     description = report.description,
                     category = report.category,
                     location = report.location,
-                    volunteersNeeded = requireNotNull(report.volunteersNeeded)
+                    volunteersNeeded = requireNotNull(report.volunteersNeeded),
+                    slot = requireNotNull(report.slot)
                 )
             }
 
@@ -130,7 +132,8 @@ class ReportServiceTest {
                 description = "Need help carrying groceries.",
                 category = ReportCategory.GROCERIES,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         )
 
@@ -265,7 +268,8 @@ class ReportServiceTest {
                 description = "Need help moving furniture.",
                 category = ReportCategory.MOVING,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         )
 

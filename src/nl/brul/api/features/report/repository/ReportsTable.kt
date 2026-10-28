@@ -39,5 +39,10 @@ object ReportsTable : Table("reports") {
     val createdAt = long("created_at").default(0L)
     val viewCount = integer("view_count").default(0)
 
+    // Time slot of a help request in epoch milliseconds (like created_at).
+    // Only filled for HELP_REQUEST, just like volunteers_needed.
+    val slotStart = long("slot_start").nullable()
+    val slotEnd = long("slot_end").nullable()
+
     override val primaryKey = PrimaryKey(id)
 }

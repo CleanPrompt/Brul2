@@ -8,14 +8,23 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
+import java.nio.file.Path
+import java.time.Clock
 import nl.brul.api.config.AppConfig
+import nl.brul.api.database.ExposedTransactionRunner
 import nl.brul.api.features.auth.routes.authRoutes
 import nl.brul.api.features.auth.service.AuthService
 import nl.brul.api.features.help.repository.ExposedHelpParticipationRepository
 import nl.brul.api.features.help.routes.helpParticipationRoutes
+import nl.brul.api.features.help.routes.volunteerRoutes
 import nl.brul.api.features.help.service.HelpParticipationService
 import nl.brul.api.features.report.repository.ExposedReportRepository
+import nl.brul.api.features.report.repository.ExposedReportPhotoRepository
+import nl.brul.api.features.report.repository.FileSystemPhotoStorage
+import nl.brul.api.features.report.repository.PhotoStorage
+import nl.brul.api.features.report.routes.reportPhotoRoutes
 import nl.brul.api.features.report.routes.reportRoutes
+import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
 import nl.brul.api.features.user.routes.userRoutes
@@ -36,26 +45,44 @@ data class HealthResponse(
 fun Application.configureRouting(
     config: AppConfig,
     database: Database,
-    jwtService: JwtService
+    jwtService: JwtService,
+    clock: Clock = Clock.systemUTC(),
+    photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of(config.uploadsDir))
 ) {
+    val transactions = ExposedTransactionRunner(database)
+
     val reportRepository = ExposedReportRepository(database)
     val voteRepository = ExposedVoteRepository(database)
     val helpParticipationRepository =
         ExposedHelpParticipationRepository(database)
+    val photoRepository = ExposedReportPhotoRepository(database)
+
+    val helpParticipationService = HelpParticipationService(
+        participationRepository = helpParticipationRepository,
+        reportRepository = reportRepository,
+        clock = clock,
+        transactions = transactions
+    )
+
+    val photoService = ReportPhotoService(
+        reportRepository = reportRepository,
+        photoRepository = photoRepository,
+        storage = photoStorage,
+        participationRepository = helpParticipationRepository,
+        clock = clock
+    )
 
     val reportService = ReportService(
         repository = reportRepository,
         voteRepository = voteRepository,
-        helpParticipationRepository = helpParticipationRepository
+        helpParticipationRepository = helpParticipationRepository,
+        clock = clock,
+        participationService = helpParticipationService,
+        photoService = photoService
     )
 
     val voteService = VoteService(
         voteRepository = voteRepository,
-        reportRepository = reportRepository
-    )
-
-    val helpParticipationService = HelpParticipationService(
-        participationRepository = helpParticipationRepository,
         reportRepository = reportRepository
     )
 
@@ -81,7 +108,9 @@ fun Application.configureRouting(
                 )
             }
 
-            reportRoutes(reportService)
+            reportRoutes(reportService, photoService)
+
+            reportPhotoRoutes(photoService)
 
             voteRoutes(
                 voteService = voteService,
@@ -89,6 +118,8 @@ fun Application.configureRouting(
             )
 
             helpParticipationRoutes(helpParticipationService)
+
+            volunteerRoutes(helpParticipationService)
 
             authRoutes(
                 authService = authService,

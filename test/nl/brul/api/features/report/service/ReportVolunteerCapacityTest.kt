@@ -6,7 +6,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import java.time.Instant
 import nl.brul.api.features.help.model.HelpParticipation
+import nl.brul.api.features.help.model.ParticipationStatus
 import nl.brul.api.features.help.repository.HelpParticipationRepository
 import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.Location
@@ -14,6 +16,7 @@ import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.repository.ReportRepository
+import nl.brul.api.support.TestSlots
 
 class ReportVolunteerCapacityTest {
 
@@ -105,7 +108,8 @@ class ReportVolunteerCapacityTest {
             latitude = 52.0705,
             longitude = 4.3007
         ),
-        volunteersNeeded = volunteersNeeded
+        volunteersNeeded = volunteersNeeded,
+        slot = TestSlots.slot
     )
 
     private class FakeReportRepository(
@@ -154,19 +158,25 @@ class ReportVolunteerCapacityTest {
             userId: Long
         ): HelpParticipation? = null
 
+        override fun findByUser(
+            userId: Long
+        ): List<HelpParticipation> =
+            emptyList()
+
         override fun add(
             helpRequestId: Long,
-            userId: Long
+            userId: Long,
+            status: ParticipationStatus,
+            joinedAt: Instant
         ): HelpParticipation {
             error("Not needed for this test.")
         }
 
-        override fun remove(
-            helpRequestId: Long,
-            userId: Long
+        override fun update(
+            participation: HelpParticipation
         ): Boolean = false
 
-        override fun countByHelpRequest(
+        override fun countSignedUp(
             helpRequestId: Long
         ): Int = participantCount
     }

@@ -10,6 +10,8 @@ import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
+import nl.brul.api.features.report.model.TimeSlot
+import java.time.Instant
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -57,6 +59,8 @@ class ExposedReportRepository(
             it[status] = ReportStatus.OPEN.name
             it[urgent] = report.urgent
             it[volunteersNeeded] = report.volunteersNeeded
+            it[slotStart] = report.slot?.start?.toEpochMilli()
+            it[slotEnd] = report.slot?.end?.toEpochMilli()
             it[createdAt] = timestamp
             it[viewCount] = 0
         } get ReportsTable.id
@@ -118,16 +122,22 @@ class ExposedReportRepository(
                 is SafetyReport -> {
                     it[urgent] = report.urgent
                     it[volunteersNeeded] = null
+                    it[slotStart] = null
+                    it[slotEnd] = null
                 }
 
                 is NuisanceReport -> {
                     it[urgent] = null
                     it[volunteersNeeded] = null
+                    it[slotStart] = null
+                    it[slotEnd] = null
                 }
 
                 is HelpRequest -> {
                     it[urgent] = null
                     it[volunteersNeeded] = report.volunteersNeeded
+                    it[slotStart] = report.slot.start.toEpochMilli()
+                    it[slotEnd] = report.slot.end.toEpochMilli()
                 }
 
                 else -> error("Unsupported report type.")
@@ -135,6 +145,15 @@ class ExposedReportRepository(
         }
 
         updatedRows > 0
+    }
+
+    override fun findByIdForUpdate(id: Long): Report? = transaction(database) {
+        ReportsTable
+            .selectAll()
+            .where { ReportsTable.id eq id }
+            .forUpdate()
+            .singleOrNull()
+            ?.toReport()
     }
 
     override fun delete(id: Long): Boolean = transaction(database) {
@@ -206,6 +225,14 @@ class ExposedReportRepository(
                 location = location,
                 volunteersNeeded = requireNotNull(
                     this[ReportsTable.volunteersNeeded]
+                ),
+                slot = TimeSlot(
+                    start = Instant.ofEpochMilli(
+                        requireNotNull(this[ReportsTable.slotStart])
+                    ),
+                    end = Instant.ofEpochMilli(
+                        requireNotNull(this[ReportsTable.slotEnd])
+                    )
                 ),
                 status = status,
                 createdAt = createdAt,

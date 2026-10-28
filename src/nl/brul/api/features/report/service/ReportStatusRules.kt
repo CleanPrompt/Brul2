@@ -2,6 +2,7 @@
 package nl.brul.api.features.report.service
 
 import nl.brul.api.features.report.model.ReportStatus
+import nl.brul.api.features.report.model.ReportType
 
 /**
  * Laag: service (domeinregels voor de status).
@@ -39,6 +40,25 @@ object ReportStatusRules {
 
         require(allowed) {
             "Cannot change report status from $current to $next."
+        }
+    }
+
+    /**
+     * R14: the same rules, plus one extra for help requests.
+     * A help request is "in progress" because its time slot has started
+     * (see HelpRequestPhase), so the owner can only close it (RESOLVED).
+     */
+    fun validateTransition(
+        current: ReportStatus,
+        next: ReportStatus,
+        type: ReportType
+    ) {
+        validateTransition(current, next)
+
+        if (type == ReportType.HELP_REQUEST && current != next) {
+            require(next == ReportStatus.RESOLVED) {
+                "A help request can only be closed; its progress follows from its time slot."
+            }
         }
     }
 }

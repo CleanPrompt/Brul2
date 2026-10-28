@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import nl.brul.api.support.TestSlots
 
 class ReportModelTest {
 
@@ -52,7 +53,8 @@ class ReportModelTest {
             description = "Need help carrying groceries.",
             category = ReportCategory.GROCERIES,
             location = location,
-            volunteersNeeded = 2
+            volunteersNeeded = 2,
+            slot = TestSlots.slot
         )
 
         assertEquals(ReportType.HELP_REQUEST, report.type)
@@ -84,7 +86,8 @@ class ReportModelTest {
                 description = "Need help moving a table.",
                 category = ReportCategory.MOVING,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         )
 
@@ -133,7 +136,8 @@ class ReportModelTest {
                 description = "Need some assistance.",
                 category = ReportCategory.GROCERIES,
                 location = location,
-                volunteersNeeded = 0
+                volunteersNeeded = 0,
+                slot = TestSlots.slot
             )
         }
     }
@@ -174,7 +178,8 @@ class ReportModelTest {
                 description = "Incorrect category.",
                 category = ReportCategory.THEFT,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         }
     }

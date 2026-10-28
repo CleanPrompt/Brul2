@@ -29,5 +29,10 @@ data class ReportResponse(
     val volunteersNeeded: Int? = null,
     val createdAt: Long,
     val viewCount: Int,
-    val ownerId: Long? = null
+    val ownerId: Long? = null,
+    // Help requests only (ISO-8601, UTC).
+    val startsAt: String? = null,
+    val endsAt: String? = null,
+    // Only filled when a single report is requested.
+    val photoCount: Int? = null
 )

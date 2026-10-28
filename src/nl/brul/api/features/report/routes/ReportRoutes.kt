@@ -21,10 +21,12 @@ import nl.brul.api.features.report.dto.toResponse
 import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportType
+import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportSearch
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.report.service.ReportSort
 
+<<<<<<< Updated upstream
 /**
  * Laag: routes (de voordeur).
  *
@@ -42,6 +44,12 @@ import nl.brul.api.features.report.service.ReportSort
  * Foute invoer geeft een IllegalArgumentException; ErrorHandling maakt daar 400 Bad Request van.
  */
 fun Route.reportRoutes(service: ReportService) {
+=======
+fun Route.reportRoutes(
+    service: ReportService,
+    photoService: ReportPhotoService? = null
+) {
+>>>>>>> Stashed changes
 
     route("/reports") {
 
@@ -112,7 +120,10 @@ fun Route.reportRoutes(service: ReportService) {
                 return@get
             }
 
-            call.respond(HttpStatusCode.OK, report.toResponse())
+            call.respond(
+                HttpStatusCode.OK,
+                report.toResponse(photoCount = photoService?.count(report.id))
+            )
         }
 
         authenticate("auth-jwt") {

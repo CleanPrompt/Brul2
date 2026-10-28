@@ -15,6 +15,7 @@ import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
+import nl.brul.api.support.TestSlots
 
 class ReportDtoTest {
 
@@ -75,7 +76,9 @@ class ReportDtoTest {
             category = "GROCERIES",
             latitude = 52.0,
             longitude = 4.0,
-            volunteersNeeded = 2
+            volunteersNeeded = 2,
+            startsAt = TestSlots.STARTS_AT,
+            endsAt = TestSlots.ENDS_AT
         ).toNewReport()
 
         assertEquals(ReportType.HELP_REQUEST, result.type)
@@ -192,7 +195,8 @@ class ReportDtoTest {
             category = ReportCategory.GROCERIES,
             location = location,
             volunteersNeeded = 2,
-            createdAt = 123456789L
+            createdAt = 123456789L,
+            slot = TestSlots.slot
         )
 
         val json = Json.encodeToString(report.toResponse())

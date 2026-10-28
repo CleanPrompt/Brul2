@@ -25,6 +25,14 @@ interface ReportRepository {
     // Default implementation keeps existing test repositories compatible.
     fun findByIdAndIncrementViews(id: Long): Report? = findById(id)
 
+    /**
+     * Reads a report and locks its row until the surrounding transaction
+     * ends, so two requests cannot change the same help request at once
+     * (for example two volunteers taking the last place).
+     * The default keeps simple test repositories compatible.
+     */
+    fun findByIdForUpdate(id: Long): Report? = findById(id)
+
     fun update(report: Report): Boolean
 
     fun delete(id: Long): Boolean

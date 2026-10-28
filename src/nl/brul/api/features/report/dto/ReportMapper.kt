@@ -10,6 +10,9 @@ import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.model.NewReport
+import nl.brul.api.features.report.model.TimeSlot
+import java.time.Instant
+import java.time.format.DateTimeParseException
 
 /**
  * Hulpfunctie: zet tekst zoals "SAFETY" om naar de bijbehorende enum-waarde.
@@ -28,6 +31,7 @@ private inline fun <reified T : Enum<T>> parseEnum(
     )
 }
 
+<<<<<<< Updated upstream
 /**
  * Laag: dto (mapper).
  *
@@ -36,6 +40,37 @@ private inline fun <reified T : Enum<T>> parseEnum(
  * Daarna controleert NewReport in zijn `init` zelf of alles klopt.
  * De ownerId wordt later in de route gezet met `.copy(ownerId = userId)`.
  */
+=======
+private fun parseInstant(value: String, fieldName: String): Instant =
+    try {
+        Instant.parse(value)
+    } catch (exception: DateTimeParseException) {
+        throw IllegalArgumentException(
+            "Invalid $fieldName: use ISO-8601 in UTC, e.g. 2026-11-20T10:00:00Z.",
+            exception
+        )
+    }
+
+/**
+ * Builds a time slot from the optional request fields.
+ * Both fields must be given together, or both left out.
+ */
+private fun parseSlot(startsAt: String?, endsAt: String?): TimeSlot? {
+    if (startsAt == null && endsAt == null) {
+        return null
+    }
+
+    require(startsAt != null && endsAt != null) {
+        "startsAt and endsAt must be given together."
+    }
+
+    return TimeSlot(
+        start = parseInstant(startsAt, "startsAt"),
+        end = parseInstant(endsAt, "endsAt")
+    )
+}
+
+>>>>>>> Stashed changes
 fun CreateReportRequest.toNewReport(): NewReport {
     return NewReport(
         type = parseEnum<ReportType>(type, "report type"),
@@ -44,7 +79,8 @@ fun CreateReportRequest.toNewReport(): NewReport {
         category = parseEnum<ReportCategory>(category, "report category"),
         location = Location(latitude, longitude),
         urgent = urgent,
-        volunteersNeeded = volunteersNeeded
+        volunteersNeeded = volunteersNeeded,
+        slot = parseSlot(startsAt, endsAt)
     )
 }
 
@@ -71,7 +107,9 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
         category = parseEnum<ReportCategory>(category, "report category"),
         location = Location(latitude, longitude),
         urgent = urgent,
-        volunteersNeeded = volunteersNeeded
+        volunteersNeeded = volunteersNeeded,
+        // A help request keeps its slot when the client does not send one.
+        slot = parseSlot(startsAt, endsAt) ?: (existing as? HelpRequest)?.slot
     )
 
     val requestedStatus = parseEnum<ReportStatus>(
@@ -114,6 +152,7 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
             volunteersNeeded = requireNotNull(
                 newReport.volunteersNeeded
             ),
+            slot = requireNotNull(newReport.slot),
             status = requestedStatus,
             createdAt = existing.createdAt,
             viewCount = existing.viewCount,
@@ -122,12 +161,18 @@ fun UpdateReportRequest.toReport(existing: Report): Report {
     }
 }
 
+<<<<<<< Updated upstream
 /**
  * Zet een Report om naar een ReportResponse: de JSON die de API terugstuurt.
  * Met `as?` (veilige cast) worden `urgent` en `volunteersNeeded` alleen ingevuld als ze bij dit
  * soort melding horen.
  */
 fun Report.toResponse(): ReportResponse {
+=======
+fun Report.toResponse(photoCount: Int? = null): ReportResponse {
+    val slot = (this as? HelpRequest)?.slot
+
+>>>>>>> Stashed changes
     return ReportResponse(
         id = id,
         type = type.name,
@@ -141,6 +186,9 @@ fun Report.toResponse(): ReportResponse {
         volunteersNeeded = (this as? HelpRequest)?.volunteersNeeded,
         createdAt = createdAt,
         viewCount = viewCount,
-        ownerId = ownerId
+        ownerId = ownerId,
+        startsAt = slot?.start?.toString(),
+        endsAt = slot?.end?.toString(),
+        photoCount = photoCount
     )
 }

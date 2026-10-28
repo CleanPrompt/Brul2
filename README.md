@@ -10,7 +10,7 @@ Brul2 is developed as a second-year HBO Informatica school project. The project 
 
 The core API functionality is implemented and tested.
 
-**Latest confirmed test result: 268 tests passed, 0 failures.**
+**Latest confirmed test result: 380 tests passed, 0 failures** (after the Periode 2 additions below).
 
 | Checkpoint | Description | Status |
 |---|---|---|
@@ -23,8 +23,23 @@ The core API functionality is implemented and tested.
 | 10.2 | Volunteer capacity API integration tests | Completed |
 | 10.3 | Final quality review | Pending |
 | 11 | Documentation and delivery | In progress |
+| P2 | Help requests as reservations, report photos | Completed |
 
 See [ROADMAP.md](ROADMAP.md) for the complete development history and remaining tasks.
+
+### Periode 2: help requests as reservations and report photos
+
+Help requests now have a time slot, and volunteers sign up for it like a
+reservation. The rules (R1–R14) and photo rules (F1–F8) are described in
+[docs/02-ontwerp-hulpvraag-reservering-en-fotos.md](docs/02-ontwerp-hulpvraag-reservering-en-fotos.md).
+
+- A help request requires `startsAt` and `endsAt` (ISO-8601, UTC) and must start in the future.
+- A volunteer cannot sign up for two help requests at the same time (`TIME_CONFLICT`).
+- A full help request has a waitlist; when a place frees up before the start, the next volunteer moves up automatically.
+- Leaving at least 2 hours before the start is a normal cancellation, later it is a late cancellation.
+- After the start, the owner records who attended; 3 no-shows in 30 days block new sign-ups.
+- Reports can have up to 3 photos (JPEG/PNG, max 5 MB); location data is removed on upload.
+- Error responses for broken business rules contain a fixed `code`, for example `{"message": "...", "code": "TIME_CONFLICT"}`.
 
 ---
 
@@ -583,14 +598,28 @@ Authorization: Bearer YOUR_JWT_TOKEN
 | GET | `/reports/{id}/participants/list` | Public |
 | POST | `/reports/{id}/participants` | JWT |
 | DELETE | `/reports/{id}/participants/me` | JWT |
+| PUT | `/reports/{id}/participants/{userId}/attendance` | JWT (owner) |
+| GET | `/users/me/participations?upcoming=true` | JWT |
+| GET | `/users/me/reliability` | JWT |
 
 The participation summary provides:
 
 - Help request ID.
 - Required number of volunteers.
-- Current participant count.
+- Current participant count (volunteers with status `SIGNED_UP`).
 - Available volunteer places.
-- Participation status.
+- Waitlist count.
+- Phase: `OPEN`, `FULL`, `IN_PROGRESS`, `COMPLETED` or `CLOSED`, derived from the time slot.
+- `startsAt` and `endsAt` of the time slot.
+
+### Report Photos
+
+| Method | Endpoint | Authentication |
+|---|---|---|
+| GET | `/reports/{id}/photos` | Public |
+| POST | `/reports/{id}/photos` (multipart: `kind`, `photo`) | JWT |
+| GET | `/photos/{photoId}` | Public |
+| DELETE | `/photos/{photoId}` | JWT (uploader or admin) |
 
 ---
 
@@ -614,9 +643,13 @@ Content-Type: application/json
   "category": "GROCERIES",
   "latitude": 52.0705,
   "longitude": 4.3007,
-  "volunteersNeeded": 5
+  "volunteersNeeded": 5,
+  "startsAt": "2026-11-20T10:00:00Z",
+  "endsAt": "2026-11-20T12:00:00Z"
 }
 ```
+
+The time slot must lie in the future and can last at most 8 hours.
 
 ### Retrieve Reports
 
@@ -650,12 +683,15 @@ Content-Type: application/json
   "category": "GROCERIES",
   "latitude": 52.0705,
   "longitude": 4.3007,
-  "status": "IN_PROGRESS",
+  "status": "OPEN",
   "volunteersNeeded": 5
 }
 ```
 
-Only the report owner can update the report.
+Only the report owner can update the report. When `startsAt` and `endsAt`
+are left out, the help request keeps its time slot. A help request cannot be
+set to `IN_PROGRESS` by hand: that phase follows from its time slot. The
+owner can only close it (`RESOLVED`).
 
 ### Invalid Volunteer Capacity Update
 
@@ -820,9 +856,9 @@ Brul2 contains automated unit and integration tests.
 
 ### Current Test Result
 
-**268 tests passed — 0 failures.**
+**380 tests passed — 0 failures.**
 
-This result was confirmed after implementing volunteer capacity validation and its HTTP integration tests.
+This result was confirmed after implementing the Periode 2 additions (time slots, waitlist, attendance and report photos).
 
 ### Test Coverage
 

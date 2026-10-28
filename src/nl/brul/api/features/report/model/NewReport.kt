@@ -21,7 +21,8 @@ data class NewReport(
     val location: Location,
     val urgent: Boolean? = null,
     val volunteersNeeded: Int? = null,
-    val ownerId: Long? = null
+    val ownerId: Long? = null,
+    val slot: TimeSlot? = null
 ) {
     init {
         require(ownerId == null || ownerId > 0) {
@@ -38,13 +39,7 @@ data class NewReport(
 
         when (type) {
             ReportType.SAFETY -> {
-                require(
-                    category in setOf(
-                        ReportCategory.THEFT,
-                        ReportCategory.SUSPICIOUS_SITUATION,
-                        ReportCategory.TRAFFIC_SAFETY
-                    )
-                ) {
+                require(category in type.allowedCategories) {
                     "Invalid safety report category."
                 }
 
@@ -52,38 +47,23 @@ data class NewReport(
                     "Safety reports require an urgent value."
                 }
 
-                require(volunteersNeeded == null) {
+                require(volunteersNeeded == null && slot == null) {
                     "Safety reports cannot contain help fields."
                 }
             }
 
             ReportType.NUISANCE -> {
-                require(
-                    category in setOf(
-                        ReportCategory.NOISE,
-                        ReportCategory.WASTE,
-                        ReportCategory.VANDALISM,
-                        ReportCategory.PARKING
-                    )
-                ) {
+                require(category in type.allowedCategories) {
                     "Invalid nuisance report category."
                 }
 
-                require(urgent == null && volunteersNeeded == null) {
+                require(urgent == null && volunteersNeeded == null && slot == null) {
                     "Nuisance reports cannot contain safety or help fields."
                 }
             }
 
             ReportType.HELP_REQUEST -> {
-                require(
-                    category in setOf(
-                        ReportCategory.GROCERIES,
-                        ReportCategory.TRANSPORT,
-                        ReportCategory.MOVING,
-                        ReportCategory.CHORES,
-                        ReportCategory.OTHER
-                    )
-                ) {
+                require(category in type.allowedCategories) {
                     "Invalid help request category."
                 }
 
@@ -93,6 +73,15 @@ data class NewReport(
 
                 require(urgent == null) {
                     "Help requests cannot contain safety fields."
+                }
+
+                // R1: a help request is always planned in a time slot.
+                require(slot != null) {
+                    "Help requests require a time slot (startsAt and endsAt)."
+                }
+
+                require(slot.duration <= HelpRequest.MAX_SLOT_DURATION) {
+                    "A help request can last at most ${HelpRequest.MAX_SLOT_DURATION.toHours()} hours."
                 }
             }
         }

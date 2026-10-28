@@ -9,11 +9,13 @@ import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import nl.brul.api.common.error.ApiError
+import nl.brul.api.common.error.DomainConflictException
+import nl.brul.api.common.error.DomainForbiddenException
+import nl.brul.api.common.error.DomainNotFoundException
+import nl.brul.api.common.error.PayloadTooLargeException
+import nl.brul.api.common.error.UnsupportedMediaTypeException
 import nl.brul.api.features.auth.service.EmailAlreadyRegisteredException
 import nl.brul.api.features.auth.service.InvalidCredentialsException
-import nl.brul.api.features.help.service.HelpRequestNotFoundException
-import nl.brul.api.features.help.service.HelpParticipationForbiddenException
-import nl.brul.api.features.help.service.HelpParticipationConflictException
 
 fun Application.configureErrorHandling() {
 
@@ -47,24 +49,41 @@ fun Application.configureErrorHandling() {
             )
         }
 
-        exception<HelpRequestNotFoundException> { call, _ ->
+        // Broken business rules: the message explains, the code identifies
+        // the rule (for example TIME_CONFLICT), so the app can react to it.
+
+        exception<DomainNotFoundException> { call, cause ->
             call.respond(
                 HttpStatusCode.NotFound,
-                ApiError("Help request not found.")
+                ApiError(cause.message ?: "Resource not found.", cause.code)
             )
         }
 
-        exception<HelpParticipationForbiddenException> { call, _ ->
+        exception<DomainForbiddenException> { call, cause ->
             call.respond(
                 HttpStatusCode.Forbidden,
-                ApiError("You cannot join your own help request.")
+                ApiError(cause.message ?: "Forbidden.", cause.code)
             )
         }
 
-        exception<HelpParticipationConflictException> { call, cause ->
+        exception<DomainConflictException> { call, cause ->
             call.respond(
                 HttpStatusCode.Conflict,
-                ApiError(cause.message ?: "Participation conflict.")
+                ApiError(cause.message ?: "Conflict.", cause.code)
+            )
+        }
+
+        exception<PayloadTooLargeException> { call, cause ->
+            call.respond(
+                HttpStatusCode.PayloadTooLarge,
+                ApiError(cause.message ?: "Payload too large.", cause.code)
+            )
+        }
+
+        exception<UnsupportedMediaTypeException> { call, cause ->
+            call.respond(
+                HttpStatusCode.UnsupportedMediaType,
+                ApiError(cause.message ?: "Unsupported media type.", cause.code)
             )
         }
 

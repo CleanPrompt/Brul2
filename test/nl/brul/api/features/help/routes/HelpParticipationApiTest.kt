@@ -7,8 +7,13 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -19,27 +24,33 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.time.Instant
 import java.util.Date
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import nl.brul.api.common.error.ApiError
+import nl.brul.api.database.ExposedTransactionRunner
+import nl.brul.api.features.help.dto.AgendaItemResponse
+import nl.brul.api.features.help.dto.HelpParticipationResponse
 import nl.brul.api.features.help.dto.HelpParticipationSummaryResponse
+import nl.brul.api.features.help.dto.ReliabilityResponse
+import nl.brul.api.features.help.model.HelpRequestPhase
+import nl.brul.api.features.help.model.ParticipationStatus
 import nl.brul.api.features.help.repository.ExposedHelpParticipationRepository
-import nl.brul.api.features.help.repository.HelpParticipationsTable
 import nl.brul.api.features.help.service.HelpParticipationService
-import nl.brul.api.features.report.dto.CreateReportRequest
-import nl.brul.api.features.report.dto.toNewReport
+import nl.brul.api.features.report.model.TimeSlot
 import nl.brul.api.features.report.repository.ExposedReportRepository
-import nl.brul.api.features.report.repository.ReportsTable
-import nl.brul.api.features.user.model.NewUser
-import nl.brul.api.features.user.repository.ExposedUserRepository
-import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.plugins.configureErrorHandling
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
+import nl.brul.api.support.TestClock
+import nl.brul.api.support.TestDatabase
+import nl.brul.api.support.createHelpRequest
 
+/**
+ * API tests for help participation (T11-T13).
+ * The service runs on a fixed clock: "now" is 08:00, H runs 10:00-12:00.
+ */
 class HelpParticipationApiTest {
 
     private val secret = "help-participation-test-secret-at-least-32-bytes"
@@ -57,62 +68,36 @@ class HelpParticipationApiTest {
             .withAudience(audience)
             .withClaim("role", "USER")
             .withIssuedAt(Date())
-            .withExpiresAt(
-                Date(System.currentTimeMillis() + 3_600_000L)
-            )
+            .withExpiresAt(Date(System.currentTimeMillis() + 3_600_000L))
             .sign(Algorithm.HMAC256(secret))
 
+    private fun at(time: String): Instant = Instant.parse("2026-11-20T${time}:00Z")
+
+    private class Api(
+        val reports: ExposedReportRepository,
+        val clock: TestClock,
+        val helpRequestId: Long
+    )
+
     private fun testHelpApi(
-        block: suspend ApplicationTestBuilder.(Long) -> Unit
+        places: Int = 1,
+        block: suspend ApplicationTestBuilder.(Api) -> Unit
     ) = testApplication {
-        val database = Database.connect(
-            url = "jdbc:h2:mem:help_api_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-            user = "sa",
-            password = ""
-        )
-
-        transaction(database) {
-            SchemaUtils.create(
-                UsersTable,
-                ReportsTable,
-                HelpParticipationsTable
-            )
-        }
-
-        // Create users with IDs 1, 2 and 3 for foreign key constraints.
-        val users = ExposedUserRepository(database)
-
-        repeat(3) { index ->
-            val userNumber = index + 1
-
-            users.create(
-                NewUser(
-                    username = "testuser$userNumber",
-                    email = "testuser$userNumber@example.com",
-                    passwordHash = "test-password-hash"
-                )
-            )
-        }
-
+        val database = TestDatabase.create("help_api", users = 4)
+        val clock = TestClock(at("08:00"))
         val reports = ExposedReportRepository(database)
         val participants = ExposedHelpParticipationRepository(database)
 
         val service = HelpParticipationService(
             participationRepository = participants,
-            reportRepository = reports
+            reportRepository = reports,
+            clock = clock,
+            transactions = ExposedTransactionRunner(database)
         )
 
-        val report = reports.create(
-            CreateReportRequest(
-                type = "HELP_REQUEST",
-                title = "Help with groceries",
-                description = "I need help with shopping",
-                category = "GROCERIES",
-                latitude = 52.0705,
-                longitude = 4.3007,
-                volunteersNeeded = 1
-            ).toNewReport().copy(ownerId = 1L)
+        val helpRequest = reports.createHelpRequest(
+            slot = TimeSlot(at("10:00"), at("12:00")),
+            volunteersNeeded = places
         )
 
         application {
@@ -130,8 +115,7 @@ class HelpParticipationApiTest {
                     )
 
                     validate { credential ->
-                        val userId = credential.payload.subject
-                            ?.toLongOrNull()
+                        val userId = credential.payload.subject?.toLongOrNull()
 
                         if (userId != null && userId > 0) {
                             JWTPrincipal(credential.payload)
@@ -147,106 +131,217 @@ class HelpParticipationApiTest {
             routing {
                 route("/api/v1") {
                     helpParticipationRoutes(service)
+                    volunteerRoutes(service)
                 }
             }
         }
 
-        block(report.id)
+        block(Api(reports, clock, helpRequest.id))
     }
 
+    private suspend fun ApplicationTestBuilder.join(requestId: Long, userId: Long) =
+        client.post("/api/v1/reports/$requestId/participants") {
+            bearerAuth(token(userId))
+        }
+
+    private suspend fun HttpResponse.participation() =
+        json.decodeFromString(HelpParticipationResponse.serializer(), bodyAsText())
+
+    private suspend fun HttpResponse.error() =
+        json.decodeFromString(ApiError.serializer(), bodyAsText())
+
+    private suspend fun ApplicationTestBuilder.summary(requestId: Long) =
+        json.decodeFromString(
+            HelpParticipationSummaryResponse.serializer(),
+            client.get("/api/v1/reports/$requestId/participants").bodyAsText()
+        )
+
     @Test
-    fun `anonymous user can view participation summary`() =
-        testHelpApi { reportId ->
-            val response = client.get(
-                "/api/v1/reports/$reportId/participants"
-            )
-
-            assertEquals(HttpStatusCode.OK, response.status)
-
-            val summary = json.decodeFromString(
-                HelpParticipationSummaryResponse.serializer(),
-                response.bodyAsText()
-            )
+    fun `anonymous user can view the summary with time slot and phase`() =
+        testHelpApi { api ->
+            val summary = summary(api.helpRequestId)
 
             assertEquals(0, summary.participantCount)
             assertEquals(1, summary.availablePlaces)
+            assertEquals(HelpRequestPhase.OPEN, summary.phase)
+            assertEquals("2026-11-20T10:00:00Z", summary.startsAt)
+            assertEquals("2026-11-20T12:00:00Z", summary.endsAt)
         }
 
     @Test
     fun `anonymous user cannot join`() =
-        testHelpApi { reportId ->
-            val response = client.post(
-                "/api/v1/reports/$reportId/participants"
-            )
+        testHelpApi { api ->
+            val response = client.post("/api/v1/reports/${api.helpRequestId}/participants")
 
             assertEquals(HttpStatusCode.Unauthorized, response.status)
         }
 
     @Test
     fun `authenticated user can join and leave`() =
-        testHelpApi { reportId ->
-            val path = "/api/v1/reports/$reportId/participants"
-
-            val joined = client.post(path) {
-                bearerAuth(token(2))
-            }
+        testHelpApi { api ->
+            val joined = join(api.helpRequestId, 2)
 
             assertEquals(HttpStatusCode.Created, joined.status)
+            assertEquals(ParticipationStatus.SIGNED_UP, joined.participation().status)
 
-            val full = client.get(path)
-
-            val summary = json.decodeFromString(
-                HelpParticipationSummaryResponse.serializer(),
-                full.bodyAsText()
-            )
-
-            assertEquals(1, summary.participantCount)
-            assertEquals(0, summary.availablePlaces)
-
-            val left = client.delete("$path/me") {
+            val left = client.delete("/api/v1/reports/${api.helpRequestId}/participants/me") {
                 bearerAuth(token(2))
             }
 
-            assertEquals(HttpStatusCode.NoContent, left.status)
-
-            val availableAgain = client.get(path)
-
-            val updatedSummary = json.decodeFromString(
-                HelpParticipationSummaryResponse.serializer(),
-                availableAgain.bodyAsText()
-            )
-
-            assertEquals(0, updatedSummary.participantCount)
-            assertEquals(1, updatedSummary.availablePlaces)
+            assertEquals(HttpStatusCode.OK, left.status)
+            assertEquals(ParticipationStatus.CANCELLED, left.participation().status)
+            assertEquals(1, summary(api.helpRequestId).availablePlaces)
         }
 
     @Test
-    fun `owner cannot join through API`() =
-        testHelpApi { reportId ->
-            val response = client.post(
-                "/api/v1/reports/$reportId/participants"
-            ) {
-                bearerAuth(token(1))
-            }
+    fun `owner cannot join through the API`() =
+        testHelpApi { api ->
+            val response = join(api.helpRequestId, 1)
 
             assertEquals(HttpStatusCode.Forbidden, response.status)
+            assertEquals("OWN_REQUEST", response.error().code)
         }
 
     @Test
-    fun `full request rejects another participant`() =
-        testHelpApi { reportId ->
-            val path = "/api/v1/reports/$reportId/participants"
-
-            val first = client.post(path) {
+    fun `leaving without participating returns 404`() =
+        testHelpApi { api ->
+            val response = client.delete("/api/v1/reports/${api.helpRequestId}/participants/me") {
                 bearerAuth(token(2))
             }
 
-            assertEquals(HttpStatusCode.Created, first.status)
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            assertEquals("NOT_PARTICIPATING", response.error().code)
+        }
 
-            val second = client.post(path) {
-                bearerAuth(token(3))
+    // T11 (R6 + R8)
+    @Test
+    fun `full request puts the next volunteer on the waitlist and promotes them`() =
+        testHelpApi(places = 1) { api ->
+            assertEquals(HttpStatusCode.Created, join(api.helpRequestId, 2).status)
+
+            val waitlisted = join(api.helpRequestId, 3)
+
+            assertEquals(HttpStatusCode.Created, waitlisted.status)
+
+            val body = waitlisted.participation()
+
+            assertEquals(ParticipationStatus.WAITLISTED, body.status)
+            assertEquals(1, body.waitlistPosition)
+            assertEquals(1, summary(api.helpRequestId).waitlistCount)
+
+            val left = client.delete("/api/v1/reports/${api.helpRequestId}/participants/me") {
+                bearerAuth(token(2))
             }
 
-            assertEquals(HttpStatusCode.Conflict, second.status)
+            assertEquals(HttpStatusCode.OK, left.status)
+
+            val after = summary(api.helpRequestId)
+
+            assertEquals(1, after.participantCount)
+            assertEquals(0, after.waitlistCount)
+
+            val list = json.decodeFromString(
+                ListSerializer(HelpParticipationResponse.serializer()),
+                client.get("/api/v1/reports/${api.helpRequestId}/participants/list").bodyAsText()
+            )
+
+            assertEquals(
+                ParticipationStatus.SIGNED_UP,
+                list.single { it.userId == 3L }.status
+            )
+        }
+
+    // T12 (R5)
+    @Test
+    fun `overlapping sign-up is rejected with TIME_CONFLICT`() =
+        testHelpApi(places = 2) { api ->
+            val other = api.reports.createHelpRequest(
+                slot = TimeSlot(at("11:00"), at("13:00")),
+                ownerId = 4,
+                title = "Overlapping request"
+            )
+
+            assertEquals(HttpStatusCode.Created, join(other.id, 2).status)
+
+            val response = join(api.helpRequestId, 2)
+
+            assertEquals(HttpStatusCode.Conflict, response.status)
+            assertEquals("TIME_CONFLICT", response.error().code)
+        }
+
+    // T13 (R9)
+    @Test
+    fun `only the owner can record attendance, and only after the start`() =
+        testHelpApi { api ->
+            join(api.helpRequestId, 2)
+
+            val path = "/api/v1/reports/${api.helpRequestId}/participants/2/attendance"
+            val body = """{"attended": true}"""
+
+            val anonymous = client.put(path) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, anonymous.status)
+
+            val tooEarly = client.put(path) {
+                bearerAuth(token(1))
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+            assertEquals(HttpStatusCode.Conflict, tooEarly.status)
+            assertEquals("NOT_STARTED", tooEarly.error().code)
+
+            api.clock.set("2026-11-20T12:30:00Z")
+
+            val notOwner = client.put(path) {
+                bearerAuth(token(3))
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+            assertEquals(HttpStatusCode.Forbidden, notOwner.status)
+            assertEquals("NOT_OWNER", notOwner.error().code)
+
+            val owner = client.put(path) {
+                bearerAuth(token(1))
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+            assertEquals(HttpStatusCode.OK, owner.status)
+            assertEquals(ParticipationStatus.ATTENDED, owner.participation().status)
+        }
+
+    @Test
+    fun `volunteer sees their agenda and reliability`() =
+        testHelpApi { api ->
+            join(api.helpRequestId, 2)
+
+            val agenda = json.decodeFromString(
+                ListSerializer(AgendaItemResponse.serializer()),
+                client.get("/api/v1/users/me/participations?upcoming=true") {
+                    bearerAuth(token(2))
+                }.bodyAsText()
+            )
+
+            assertEquals(api.helpRequestId, agenda.single().helpRequestId)
+            assertEquals(ParticipationStatus.SIGNED_UP, agenda.single().status)
+
+            val reliability = json.decodeFromString(
+                ReliabilityResponse.serializer(),
+                client.get("/api/v1/users/me/reliability") {
+                    bearerAuth(token(2))
+                }.bodyAsText()
+            )
+
+            assertEquals(0, reliability.noShowsLast30Days)
+            assertEquals(false, reliability.blocked)
+
+            val anonymous = client.get("/api/v1/users/me/participations")
+
+            assertEquals(HttpStatusCode.Unauthorized, anonymous.status)
         }
 }

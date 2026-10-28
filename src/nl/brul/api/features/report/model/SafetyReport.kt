@@ -31,13 +31,7 @@ class SafetyReport(
     }
 
     override fun validateCategory() {
-        require(
-            category in setOf(
-                ReportCategory.THEFT,
-                ReportCategory.SUSPICIOUS_SITUATION,
-                ReportCategory.TRAFFIC_SAFETY
-            )
-        ) {
+        require(category in ReportType.SAFETY.allowedCategories) {
             "Invalid safety report category."
         }
     }

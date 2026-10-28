@@ -28,7 +28,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import java.time.Instant
 import nl.brul.api.features.help.model.HelpParticipation
+import nl.brul.api.features.help.model.ParticipationStatus
 import nl.brul.api.features.help.repository.HelpParticipationRepository
 import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.UpdateReportRequest
@@ -41,6 +43,7 @@ import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.repository.ReportRepository
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.plugins.configureErrorHandling
+import nl.brul.api.support.TestSlots
 
 class ReportRoutesTest {
 
@@ -92,7 +95,8 @@ class ReportRoutesTest {
                     volunteersNeeded = requireNotNull(
                         report.volunteersNeeded
                     ),
-                    ownerId = report.ownerId
+                    ownerId = report.ownerId,
+                    slot = requireNotNull(report.slot)
                 )
             }
 
@@ -135,19 +139,25 @@ class ReportRoutesTest {
             userId: Long
         ): HelpParticipation? = null
 
+        override fun findByUser(
+            userId: Long
+        ): List<HelpParticipation> =
+            emptyList()
+
         override fun add(
             helpRequestId: Long,
-            userId: Long
+            userId: Long,
+            status: ParticipationStatus,
+            joinedAt: Instant
         ): HelpParticipation {
             error("Not needed for this test.")
         }
 
-        override fun remove(
-            helpRequestId: Long,
-            userId: Long
+        override fun update(
+            participation: HelpParticipation
         ): Boolean = false
 
-        override fun countByHelpRequest(
+        override fun countSignedUp(
             helpRequestId: Long
         ): Int = participantCount
     }
@@ -171,7 +181,9 @@ class ReportRoutesTest {
         category = "GROCERIES",
         latitude = 52.0705,
         longitude = 4.3007,
-        volunteersNeeded = volunteersNeeded
+        volunteersNeeded = volunteersNeeded,
+        startsAt = TestSlots.STARTS_AT,
+        endsAt = TestSlots.ENDS_AT
     )
 
     private fun updateHelpRequest(

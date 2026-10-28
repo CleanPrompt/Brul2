@@ -4,6 +4,7 @@ package nl.brul.api.database
 import io.ktor.server.application.Application
 import io.ktor.server.application.log
 import nl.brul.api.features.help.repository.HelpParticipationsTable
+import nl.brul.api.features.report.repository.ReportPhotosTable
 import nl.brul.api.features.report.repository.ReportsTable
 import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.features.vote.repository.VotesTable
@@ -28,17 +29,32 @@ object DatabaseFactory {
             password = password
         )
 
-        transaction(database) {
-            SchemaUtils.create(
-                UsersTable,
-                ReportsTable,
-                VotesTable,
-                HelpParticipationsTable
-            )
-        }
+        createSchema(database)
 
         application.log.info("Database initialized.")
 
         return database
     }
+<<<<<<< Updated upstream
 }
+=======
+
+    /**
+     * Creates missing tables and brings an existing local database up to
+     * date (see DatabaseMigrations), so nobody has to delete data/ by hand.
+     */
+    fun createSchema(database: Database) {
+        transaction(database) {
+            SchemaUtils.create(
+                UsersTable,
+                ReportsTable,
+                VotesTable,
+                HelpParticipationsTable,
+                ReportPhotosTable
+            )
+
+            DatabaseMigrations.migrate(this)
+        }
+    }
+}
+>>>>>>> Stashed changes

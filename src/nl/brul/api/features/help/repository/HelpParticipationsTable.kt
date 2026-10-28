@@ -19,6 +19,14 @@ object HelpParticipationsTable : Table("help_participations") {
         onDelete = ReferenceOption.CASCADE
     )
 
+    // One row per volunteer per help request; leaving or attending only
+    // changes the status (see ParticipationStatus).
+    val status = varchar("status", 20).default("SIGNED_UP")
+
+    // Epoch milliseconds, like created_at elsewhere.
+    val joinedAt = long("joined_at").default(0L)
+    val changedAt = long("changed_at").default(0L)
+
     override val primaryKey = PrimaryKey(id)
 
     init {

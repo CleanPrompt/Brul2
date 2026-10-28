@@ -23,5 +23,8 @@ data class CreateReportRequest(
     val latitude: Double,
     val longitude: Double,
     val urgent: Boolean? = null,
-    val volunteersNeeded: Int? = null
+    val volunteersNeeded: Int? = null,
+    // Help requests only: ISO-8601 in UTC, e.g. "2026-11-20T10:00:00Z".
+    val startsAt: String? = null,
+    val endsAt: String? = null
 )

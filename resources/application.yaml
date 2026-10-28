@@ -9,6 +9,8 @@ ktor:
 
 brul:
   name: brul-api
+  # Uploaded report photos (not in Git, see .gitignore).
+  uploadsDir: "./uploads"
 
 database:
   url: "jdbc:h2:file:./data/brul;DB_CLOSE_ON_EXIT=FALSE"

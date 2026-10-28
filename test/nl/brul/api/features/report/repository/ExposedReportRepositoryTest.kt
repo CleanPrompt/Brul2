@@ -9,6 +9,7 @@ import nl.brul.api.features.report.model.ReportCategory
 import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
+import nl.brul.api.support.TestSlots
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -98,7 +99,8 @@ class ExposedReportRepositoryTest {
                 description = "Looking for help with shopping.",
                 category = ReportCategory.GROCERIES,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         )
 
@@ -204,7 +206,8 @@ class ExposedReportRepositoryTest {
                 description = "Need help moving furniture.",
                 category = ReportCategory.MOVING,
                 location = location,
-                volunteersNeeded = 2
+                volunteersNeeded = 2,
+                slot = TestSlots.slot
             )
         )
 

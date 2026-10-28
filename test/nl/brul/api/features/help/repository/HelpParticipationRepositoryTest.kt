@@ -1,194 +1,137 @@
 // test/nl/brul/api/features/help/repository/HelpParticipationRepositoryTest.kt
 package nl.brul.api.features.help.repository
 
-import java.util.UUID
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import nl.brul.api.features.report.dto.CreateReportRequest
-import nl.brul.api.features.report.dto.toNewReport
+import nl.brul.api.features.help.model.ParticipationStatus
 import nl.brul.api.features.report.repository.ExposedReportRepository
-import nl.brul.api.features.report.repository.ReportsTable
-import nl.brul.api.features.user.model.NewUser
-import nl.brul.api.features.user.repository.ExposedUserRepository
-import nl.brul.api.features.user.repository.UsersTable
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
+import nl.brul.api.support.TestDatabase
+import nl.brul.api.support.createHelpRequest
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 
 class HelpParticipationRepositoryTest {
 
+    private val joined = Instant.parse("2026-11-20T07:00:00Z")
+
     private fun withRepositories(
-        block: (
-            ExposedReportRepository,
-            HelpParticipationRepository
-        ) -> Unit
+        block: (ExposedReportRepository, HelpParticipationRepository) -> Unit
     ) {
-        val database = Database.connect(
-            url = "jdbc:h2:mem:help_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-            user = "sa",
-            password = ""
-        )
+        val database = TestDatabase.create("help_repo")
 
-        transaction(database) {
-            SchemaUtils.create(
-                UsersTable,
-                ReportsTable,
-                HelpParticipationsTable
-            )
-        }
-
-        // Create users with IDs 1, 2 and 3 for foreign key constraints.
-        val userRepository = ExposedUserRepository(database)
-
-        repeat(3) { index ->
-            val userNumber = index + 1
-
-            userRepository.create(
-                NewUser(
-                    username = "testuser$userNumber",
-                    email = "testuser$userNumber@example.com",
-                    passwordHash = "test-password-hash"
-                )
-            )
-        }
-
-        val reports = ExposedReportRepository(database)
-        val participations =
+        block(
+            ExposedReportRepository(database),
             ExposedHelpParticipationRepository(database)
-
-        try {
-            block(reports, participations)
-        } finally {
-            transaction(database) {
-                SchemaUtils.drop(
-                    HelpParticipationsTable,
-                    ReportsTable,
-                    UsersTable
-                )
-            }
-        }
+        )
     }
-
-    private fun ExposedReportRepository.createHelpRequest(): Long =
-        create(
-            CreateReportRequest(
-                type = "HELP_REQUEST",
-                title = "Help with groceries",
-                description = "I need help carrying groceries",
-                category = "GROCERIES",
-                latitude = 52.0705,
-                longitude = 4.3007,
-                volunteersNeeded = 3
-            ).toNewReport().copy(ownerId = 1L)
-        ).id
 
     @Test
     fun `user can join a help request`() =
         withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
+            val requestId = reports.createHelpRequest().id
 
             val participation = participations.add(
                 helpRequestId = requestId,
-                userId = 2
+                userId = 2,
+                joinedAt = joined
             )
 
-            assertTrue(participation.id > 0)
             assertEquals(requestId, participation.helpRequestId)
             assertEquals(2L, participation.userId)
+            assertEquals(ParticipationStatus.SIGNED_UP, participation.status)
+            assertEquals(1, participations.countSignedUp(requestId))
+        }
+
+    // T15
+    @Test
+    fun `status and times are stored and read back`() =
+        withRepositories { reports, participations ->
+            val requestId = reports.createHelpRequest().id
+
+            val added = participations.add(
+                helpRequestId = requestId,
+                userId = 2,
+                status = ParticipationStatus.WAITLISTED,
+                joinedAt = joined
+            )
+
+            val promoted = added.moveTo(
+                ParticipationStatus.SIGNED_UP,
+                Instant.parse("2026-11-20T07:45:00Z")
+            )
+
+            assertTrue(participations.update(promoted))
+
+            val found = assertNotNull(
+                participations.findByHelpRequestAndUser(requestId, 2)
+            )
+
+            assertEquals(ParticipationStatus.SIGNED_UP, found.status)
+            assertEquals(joined, found.joinedAt)
+            assertEquals(Instant.parse("2026-11-20T07:45:00Z"), found.changedAt)
+        }
+
+    @Test
+    fun `only signed up participations are counted as places`() =
+        withRepositories { reports, participations ->
+            val requestId = reports.createHelpRequest().id
+
+            participations.add(requestId, 2, ParticipationStatus.SIGNED_UP, joined)
+            participations.add(requestId, 3, ParticipationStatus.WAITLISTED, joined)
+            participations.add(requestId, 4, ParticipationStatus.CANCELLED, joined)
+
+            assertEquals(1, participations.countSignedUp(requestId))
+            assertEquals(3, participations.findByHelpRequest(requestId).size)
+        }
+
+    @Test
+    fun `participations of one user are found across help requests`() =
+        withRepositories { reports, participations ->
+            val first = reports.createHelpRequest().id
+            val second = reports.createHelpRequest(title = "Second request").id
+
+            participations.add(first, 2, joinedAt = joined)
+            participations.add(second, 2, joinedAt = joined)
+            participations.add(second, 3, joinedAt = joined)
+
             assertEquals(
-                1,
-                participations.countByHelpRequest(requestId)
+                listOf(first, second),
+                participations.findByUser(2).map { it.helpRequestId }
             )
         }
 
     @Test
-    fun `multiple users can join the same help request`() =
+    fun `the same user cannot have two rows for one help request`() =
         withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
+            val requestId = reports.createHelpRequest().id
 
-            participations.add(requestId, 2)
-            participations.add(requestId, 3)
+            participations.add(requestId, 2, joinedAt = joined)
 
-            assertEquals(
-                2,
-                participations.countByHelpRequest(requestId)
-            )
-
-            assertEquals(
-                2,
-                participations.findByHelpRequest(requestId).size
-            )
+            assertFailsWith<ExposedSQLException> {
+                participations.add(requestId, 2, joinedAt = joined)
+            }
         }
 
     @Test
-    fun `user can leave a help request`() =
+    fun `unknown participation is not found`() =
         withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
+            val requestId = reports.createHelpRequest().id
 
-            participations.add(requestId, 2)
-
-            assertTrue(
-                participations.remove(requestId, 2)
-            )
-
-            assertNull(
-                participations.findByHelpRequestAndUser(
-                    requestId,
-                    2
-                )
-            )
-
-            assertEquals(
-                0,
-                participations.countByHelpRequest(requestId)
-            )
+            assertNull(participations.findByHelpRequestAndUser(requestId, 3))
         }
 
     @Test
-    fun `user can join again after leaving`() =
+    fun `participations are removed with their help request`() =
         withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
+            val requestId = reports.createHelpRequest().id
 
-            participations.add(requestId, 2)
-            participations.remove(requestId, 2)
-
-            val joinedAgain = participations.add(requestId, 2)
-
-            assertNotNull(joinedAgain)
-            assertEquals(
-                1,
-                participations.countByHelpRequest(requestId)
-            )
-        }
-
-    @Test
-    fun `leaving without participation returns false`() =
-        withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
-
-            assertFalse(
-                participations.remove(requestId, 2)
-            )
-        }
-
-    @Test
-    fun `deleting help request removes its participants`() =
-        withRepositories { reports, participations ->
-            val requestId = reports.createHelpRequest()
-
-            participations.add(requestId, 2)
-            participations.add(requestId, 3)
+            participations.add(requestId, 2, joinedAt = joined)
 
             assertTrue(reports.delete(requestId))
-
-            assertEquals(
-                0,
-                participations.countByHelpRequest(requestId)
-            )
+            assertEquals(0, participations.findByUser(2).size)
         }
 }

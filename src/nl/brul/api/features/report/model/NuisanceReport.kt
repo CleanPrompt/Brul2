@@ -29,14 +29,7 @@ class NuisanceReport(
     }
 
     override fun validateCategory() {
-        require(
-            category in setOf(
-                ReportCategory.NOISE,
-                ReportCategory.WASTE,
-                ReportCategory.VANDALISM,
-                ReportCategory.PARKING
-            )
-        ) {
+        require(category in ReportType.NUISANCE.allowedCategories) {
             "Invalid nuisance report category."
         }
     }
