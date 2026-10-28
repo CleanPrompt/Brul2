@@ -1,8 +1,6 @@
-' docs/uml/01-class-diagram.puml
 
 @startuml
-
-title Brul2 - 01. Report Domain Class Diagram
+title Brul2 - 01a. Report Domain Class Diagram
 
 ' Visual style
 skinparam backgroundColor #FFFFFF
@@ -115,10 +113,12 @@ Report <|-- NuisanceReport
 Report <|-- HelpRequest
 
 ' Domain relationships
-Report --> "1" Location : location
-Report --> "1" ReportCategory : category
-Report --> "1" ReportStatus : status
-Report --> "1" ReportType : type
+Report "1" --> "1" Location : location
+
+' Enum dependencies
+Report ..> ReportCategory
+Report ..> ReportStatus
+Report ..> ReportType
 
 ' Validation rules
 note right of SafetyReport
@@ -150,8 +150,8 @@ end note
 note bottom of Location
     Latitude: -90 to 90
     Longitude: -180 to 180
-
     distanceTo() returns kilometers.
 end note
+
 
 @enduml

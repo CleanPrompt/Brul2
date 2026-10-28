@@ -1,0 +1,47 @@
+
+erDiagram
+    direction TB
+
+    UsersTable {
+        LONG id PK
+        VARCHAR username
+        VARCHAR email UK
+        VARCHAR passwordHash
+        LONG createdAt
+        VARCHAR role
+    }
+
+    ReportsTable {
+        LONG id PK
+        LONG ownerId FK "nullable"
+        VARCHAR type
+        VARCHAR title
+        TEXT description
+        DOUBLE latitude
+        DOUBLE longitude
+        VARCHAR status
+        BOOLEAN urgent "nullable"
+        VARCHAR category
+        INT volunteersNeeded "nullable"
+        LONG createdAt
+        INT viewCount
+    }
+
+    VotesTable {
+        LONG id PK
+        LONG reportId FK
+        LONG userId FK
+        VARCHAR type
+    }
+
+    HelpParticipationsTable {
+        LONG id PK
+        LONG helpRequestId FK
+        LONG userId FK
+    }
+
+    UsersTable o|--o{ ReportsTable : owns
+    UsersTable ||--o{ VotesTable : casts
+    ReportsTable ||--o{ VotesTable : receives
+    UsersTable ||--o{ HelpParticipationsTable : joins
+    ReportsTable ||--o{ HelpParticipationsTable : has

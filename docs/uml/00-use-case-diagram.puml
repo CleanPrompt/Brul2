@@ -1,0 +1,75 @@
+
+@startuml
+
+title Brul2
+
+left to right direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam defaultFontColor #243247
+skinparam ArrowColor #64748B
+skinparam linetype polyline
+skinparam nodesep 50
+skinparam ranksep 60
+
+skinparam rectangle {
+    BorderColor #64748B
+    BackgroundColor #FFFFFF
+}
+
+skinparam usecase {
+    BorderColor #64748B
+    BackgroundColor #FFFFFF
+}
+
+actor "Visitor" as Visitor
+actor "Authenticated User" as User
+actor "Administrator" as Admin
+
+User --|> Visitor
+Admin --|> User
+
+rectangle "Brul2 Backend" {
+
+    usecase "Register" as UC1
+    usecase "Log In" as UC2
+    usecase "View Reports" as UC3
+    usecase "Search and Filter Reports" as UC4
+
+    usecase "Create Report" as UC5
+    usecase "Update Own Report" as UC6
+    usecase "Delete Own Report" as UC7
+
+    usecase "Vote on Report" as UC8
+    usecase "Join Help Request" as UC9
+    usecase "Leave Help Request" as UC10
+    usecase "View Participants" as UC11
+
+    usecase "View Users" as UC12
+    usecase "Change User Role" as UC13
+    usecase "Delete Any Report" as UC14
+}
+
+Visitor -- UC1
+Visitor -- UC2
+Visitor -- UC3
+Visitor -- UC4
+Visitor -- UC11
+
+User -- UC5
+User -- UC6
+User -- UC7
+User -- UC8
+User -- UC9
+User -- UC10
+
+Admin -- UC12
+Admin -- UC13
+Admin -- UC14
+
+UC14 --|> UC7
+
+@enduml

@@ -1,0 +1,122 @@
+
+@startuml
+title Brul2 - 01b. User and Authentication Class Diagram
+
+' Visual style
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam defaultFontColor #243247
+skinparam ArrowColor #243247
+skinparam ArrowThickness 1
+skinparam classAttributeIconSize 0
+
+skinparam class {
+    BackgroundColor #F1F5F9
+    BorderColor #243247
+    FontColor #243247
+    FontSize 13
+    AttributeFontSize 12
+}
+
+skinparam package {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #243247
+}
+
+skinparam note {
+    BackgroundColor #FFF7ED
+    BorderColor #D97706
+    FontColor #243247
+}
+
+left to right direction
+
+package "features.user.model" {
+    class User <<data class>> #DBEAFE {
+        +id: Long
+        +username: String
+        +email: String
+        +passwordHash: String
+        +createdAt: Long
+        +role: UserRole
+    }
+
+    class NewUser <<data class>> #F1F5F9 {
+        +username: String
+        +email: String
+        +passwordHash: String
+    }
+
+    enum UserRole #FEF3C7 {
+        USER
+        ADMIN
+    }
+}
+
+package "features.user.repository" {
+    interface UserRepository #DBEAFE
+    class ExposedUserRepository #D1FAE5
+}
+
+package "features.auth.service" {
+    class AuthService #D1FAE5
+}
+
+package "features.user.service" {
+    class UserService #D1FAE5
+}
+
+package "security" {
+    interface PasswordHasher #DBEAFE
+    class BCryptPasswordHasher #D1FAE5
+    class JwtService #D1FAE5
+    class JwtConfig #F1F5F9
+}
+
+' Interface implementations
+UserRepository <|.. ExposedUserRepository
+PasswordHasher <|.. BCryptPasswordHasher
+
+' Service dependencies
+AuthService --> UserRepository : userRepository
+AuthService --> PasswordHasher : passwordHasher
+UserService --> UserRepository : userRepository
+
+' Model dependencies
+User ..> UserRole
+UserRepository ..> User
+UserRepository ..> NewUser
+
+' JWT configuration
+JwtService --> JwtConfig : config
+
+note bottom of User
+    id > 0
+    username is not blank
+    username length <= 50
+    email is valid and <= 254
+    passwordHash is not blank
+    createdAt > 0
+end note
+
+note bottom of AuthService
+    Registration:
+    - validates user input
+    - normalizes email
+    - hashes password
+
+    Login:
+    - finds user by email
+    - verifies password
+end note
+
+note bottom of BCryptPasswordHasher
+    Uses BCrypt for password hashing.
+    Default work factor: 12.
+end note
+
+@enduml
