@@ -46,9 +46,10 @@ object ReportStatusRules {
     }
 
     /**
-     * R14: the same rules, plus one extra for help requests.
-     * A help request is "in progress" because its time slot has started
-     * (see HelpRequestPhase), so the owner can only close it (RESOLVED).
+     * R14: dezelfde regels, plus één extra voor hulpvragen.
+     * Of een hulpvraag bezig is, volgt uit zijn tijdslot (zie HelpRequestPhase). De eigenaar kan
+     * hem daarom alleen nog sluiten (RESOLVED).
+     * Twee functies met dezelfde naam maar andere parameters: dat heet overloading.
      */
     fun validateTransition(
         current: ReportStatus,

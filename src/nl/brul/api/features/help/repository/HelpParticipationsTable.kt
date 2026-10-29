@@ -6,6 +6,17 @@ import nl.brul.api.features.user.repository.UsersTable
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 
+/**
+ * Laag: repository (het geheugen).
+ *
+ * Beschrijft de tabel `help_participations`: wie zich voor welke hulpvraag heeft aangemeld.
+ * Per vrijwilliger per hulpvraag is er precies één rij; de unieke index op
+ * (`help_request_id`, `user_id`) dwingt dat in de database zelf af.
+ * Afmelden of komen opdagen verandert alleen de `status` (zie ParticipationStatus).
+ * `joined_at` en `changed_at` zijn milliseconden sinds 1970, net als `created_at` bij meldingen.
+ * Wordt de hulpvraag of de gebruiker verwijderd, dan verdwijnen de aanmeldingen mee (CASCADE).
+ * In een bestaande database voegt DatabaseMigrations de nieuwe kolommen toe.
+ */
 object HelpParticipationsTable : Table("help_participations") {
     val id = long("id").autoIncrement()
 

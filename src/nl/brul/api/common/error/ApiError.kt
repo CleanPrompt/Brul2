@@ -4,11 +4,13 @@ package nl.brul.api.common.error
 import kotlinx.serialization.Serializable
 
 /**
- * Error body returned by the API.
+ * Laag: common (gedeeld door alle features).
  *
- * [code] is a fixed, machine-readable value (for example `TIME_CONFLICT`)
- * so the Android app can show its own message instead of parsing [message].
- * It is left out of the JSON when there is no specific code.
+ * De JSON die de API terugstuurt bij een fout, bijvoorbeeld
+ * `{"message": "...", "code": "TIME_CONFLICT"}`.
+ * `code` is een vaste waarde voor programma's: de Android-app kan daarop een eigen melding tonen,
+ * in plaats van de tekst in `message` uit te pluizen.
+ * Is er geen specifieke code, dan blijft `code` weg uit de JSON.
  */
 @Serializable
 data class ApiError(

@@ -25,14 +25,23 @@ import nl.brul.api.features.report.model.PhotoKind
 import nl.brul.api.features.report.service.PhotoPolicy
 import nl.brul.api.features.report.service.ReportPhotoService
 
-/** Room for the multipart boundaries and the "kind" field next to the photo. */
+/** Ruimte voor de multipart-scheidingen en het veld "kind" naast de foto. */
 private const val MULTIPART_OVERHEAD_BYTES = 64L * 1024
 
 /**
- * Photos of reports.
+ * Laag: routes (de voordeur).
  *
- * Reading is public, like the reports themselves (agreed in the design).
- * Uploading and deleting require a JWT.
+ * Foto's bij meldingen; in Routing.kt komt /api/v1 voor de paden.
+ *
+ * - GET /reports/{id}/photos: de gegevens van alle foto's bij een melding, openbaar
+ * - GET /photos/{photoId}: de afbeelding zelf (JPEG of PNG), openbaar
+ * - POST /reports/{id}/photos: een foto plaatsen, JWT nodig; multipart met de velden `kind`
+ *   (SITUATION of RESULT) en `photo` (het bestand)
+ * - DELETE /photos/{photoId}: verwijderen, door de uploader of een ADMIN (F7)
+ *
+ * Lezen is openbaar, net als de meldingen zelf (zo afgesproken in het ontwerp).
+ * F2 bij het uploaden: een te groot verzoek wordt al op de Content-Length geweigerd, en van de
+ * foto leest de route nooit meer dan 5 MB + 1 byte. Zo kan niemand de server vol laten lopen.
  */
 fun Route.reportPhotoRoutes(service: ReportPhotoService) {
 
@@ -150,11 +159,13 @@ fun Route.reportPhotoRoutes(service: ReportPhotoService) {
     }
 }
 
+/** De fout voor F2: 413 Payload Too Large met code TOO_LARGE. */
 private fun photoTooLarge() = PayloadTooLargeException(
     code = "TOO_LARGE",
     message = "A photo can be at most ${PhotoPolicy.MAX_PHOTO_BYTES / (1024 * 1024)} MB."
 )
 
+/** Zet een id uit de URL om naar een getal; geen geldig positief getal geeft 400. */
 private fun parsePositiveId(value: String?, name: String): Long {
     val id = value?.toLongOrNull()
 

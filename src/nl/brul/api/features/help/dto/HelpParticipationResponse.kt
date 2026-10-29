@@ -10,6 +10,12 @@ import nl.brul.api.features.help.service.HelpParticipationSummary
 import nl.brul.api.features.help.service.JoinResult
 import nl.brul.api.features.help.service.Reliability
 
+/**
+ * Laag: dto (de vertaler tussen JSON en Kotlin).
+ *
+ * De JSON van één aanmelding, bijvoorbeeld na aanmelden (201) of afmelden (200).
+ * `joinedAt` is tekst in ISO-8601 (UTC); de Android-app zet dat zelf om naar lokale tijd.
+ */
 @Serializable
 data class HelpParticipationResponse(
     val id: Long,
@@ -17,10 +23,14 @@ data class HelpParticipationResponse(
     val userId: Long,
     val status: ParticipationStatus,
     val joinedAt: String,
-    /** Only when WAITLISTED: 1 means next in line. */
+    /** Alleen bij WAITLISTED: 1 betekent dat je de volgende bent. */
     val waitlistPosition: Int? = null
 )
 
+/**
+ * Samenvatting van een hulpvraag voor GET /reports/{id}/participants: plekken, bezetting,
+ * wachtlijst, fase en tijdslot.
+ */
 @Serializable
 data class HelpParticipationSummaryResponse(
     val helpRequestId: Long,
@@ -33,11 +43,13 @@ data class HelpParticipationSummaryResponse(
     val endsAt: String
 )
 
+/** De body van PUT .../attendance: `{"attended": true}`, of `false` voor een no-show. */
 @Serializable
 data class AttendanceRequest(
     val attended: Boolean
 )
 
+/** Eén regel in de agenda van GET /users/me/participations. */
 @Serializable
 data class AgendaItemResponse(
     val participationId: Long,
@@ -49,6 +61,7 @@ data class AgendaItemResponse(
     val endsAt: String
 )
 
+/** Het antwoord van GET /users/me/reliability (R11). */
 @Serializable
 data class ReliabilityResponse(
     val noShowsLast30Days: Int,
@@ -56,6 +69,10 @@ data class ReliabilityResponse(
     val blockedUntil: String? = null
 )
 
+/**
+ * Extension functions: zetten de objecten uit de service om naar de DTO's hierboven.
+ * Tijden worden tekst met `toString()`, bijvoorbeeld "2026-11-20T10:00:00Z".
+ */
 fun HelpParticipation.toResponse(waitlistPosition: Int? = null) =
     HelpParticipationResponse(
         id = id,

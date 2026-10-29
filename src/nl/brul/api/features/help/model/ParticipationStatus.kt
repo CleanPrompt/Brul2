@@ -4,15 +4,18 @@ package nl.brul.api.features.help.model
 import kotlinx.serialization.Serializable
 
 /**
- * The life cycle of one volunteer's sign-up for one help request.
+ * Laag: model (het domein).
  *
- * The allowed transitions form a small state machine. It lives on the enum
- * itself, so no code can move a participation into an impossible state.
+ * De levensloop van één aanmelding van een vrijwilliger voor één hulpvraag.
+ * De toegestane overgangen vormen een kleine toestandsmachine. Die staat in de enum zelf, zodat
+ * geen enkele code een aanmelding in een onmogelijke toestand kan zetten:
  *
- *   WAITLISTED -> SIGNED_UP (promoted, R8) | CANCELLED
- *   SIGNED_UP  -> CANCELLED | LATE_CANCELLED (R7) | ATTENDED | NO_SHOW (R9)
- *   CANCELLED  -> SIGNED_UP | WAITLISTED (signing up again, R4)
- *   LATE_CANCELLED, ATTENDED, NO_SHOW are final.
+ * - WAITLISTED kan naar SIGNED_UP (doorgeschoven, R8) of CANCELLED
+ * - SIGNED_UP kan naar CANCELLED, LATE_CANCELLED (R7), ATTENDED of NO_SHOW (R9)
+ * - CANCELLED kan opnieuw naar SIGNED_UP of WAITLISTED (opnieuw aanmelden, R4)
+ * - LATE_CANCELLED, ATTENDED en NO_SHOW zijn eindstations
+ *
+ * `@Serializable`: de status gaat als tekst mee in de JSON, bijvoorbeeld "WAITLISTED".
  */
 @Serializable
 enum class ParticipationStatus {
@@ -23,10 +26,14 @@ enum class ParticipationStatus {
     ATTENDED,
     NO_SHOW;
 
-    /** Active participations still count: a place or a spot on the waitlist. */
+    /** Actief betekent: telt nog mee, als plek of als plaats op de wachtlijst. */
     val isActive: Boolean
         get() = this == WAITLISTED || this == SIGNED_UP
 
+    /**
+     * Mag deze status naar `next`? Er is een tak per status in de `when`: vergeet je er een, dan
+     * compileert de code niet.
+     */
     fun canMoveTo(next: ParticipationStatus): Boolean = when (this) {
         WAITLISTED -> next == SIGNED_UP || next == CANCELLED
         SIGNED_UP -> next in setOf(CANCELLED, LATE_CANCELLED, ATTENDED, NO_SHOW)

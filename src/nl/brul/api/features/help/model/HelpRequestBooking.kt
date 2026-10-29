@@ -6,13 +6,15 @@ import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.ReportStatus
 
 /**
- * Aggregate: one help request together with all its participations.
+ * Laag: model (het domein).
  *
- * Every booking rule about a single help request lives here, comparable to
- * the reservations of one car in a rent-my-car system. The class is pure and
- * immutable: methods receive `now` and return a decision. The service loads
- * the data, asks this class what to do and saves the result in one
- * transaction.
+ * Aggregate: één hulpvraag samen met al zijn aanmeldingen. Alle reserveringsregels over één
+ * hulpvraag staan hier bij elkaar, net als de reserveringen van één auto bij "rent my car".
+ *
+ * De klasse is puur en onveranderlijk: elke functie krijgt `now` mee en geeft een beslissing
+ * terug, zonder database en zonder klok. De service laadt de gegevens, vraagt deze klasse wat er
+ * moet gebeuren en slaat het resultaat op in één transactie.
+ * Daardoor zijn alle regels te testen met gewone objecten (zie HelpRequestBookingTest).
  */
 class HelpRequestBooking(
     val request: HelpRequest,
@@ -31,7 +33,7 @@ class HelpRequestBooking(
             it.status == ParticipationStatus.SIGNED_UP
         }
 
-    /** R6: first come, first served. */
+    /** R6: wie het eerst komt, het eerst maalt: op `joinedAt`, bij gelijke tijd op id. */
     val waitlist: List<HelpParticipation>
         get() = participations
             .filter { it.status == ParticipationStatus.WAITLISTED }
@@ -43,13 +45,16 @@ class HelpRequestBooking(
     fun participationOf(userId: Long): HelpParticipation? =
         participations.find { it.userId == userId }
 
-    /** Position on the waitlist (1 = next in line), or null. */
+    /** Positie op de wachtlijst (1 = de volgende), of `null` als je er niet op staat. */
     fun waitlistPositionOf(userId: Long): Int? =
         waitlist.indexOfFirst { it.userId == userId }
             .takeIf { it >= 0 }
             ?.plus(1)
 
-    /** The phase follows from status, time and capacity; it is never stored. */
+    /**
+     * De fase volgt uit status, tijd en capaciteit en wordt nooit opgeslagen.
+     * De volgorde van de takken in `when` telt: gesloten gaat voor afgelopen, afgelopen voor bezig.
+     */
     fun phaseAt(now: Instant): HelpRequestPhase = when {
         request.status == ReportStatus.RESOLVED -> HelpRequestPhase.CLOSED
         request.slot.hasEnded(now) -> HelpRequestPhase.COMPLETED
@@ -58,7 +63,11 @@ class HelpRequestBooking(
         else -> HelpRequestPhase.OPEN
     }
 
-    /** R2-R6 and R11: may this volunteer sign up, and where do they end up? */
+    /**
+     * R2 t/m R6 en R11: mag deze vrijwilliger zich aanmelden, en waar komt hij terecht?
+     * De controles staan in een vaste volgorde; de eerste die niet klopt, bepaalt de afwijzing.
+     * Is de hulpvraag vol, dan komt hij op de wachtlijst (R6).
+     */
     fun join(volunteer: VolunteerRecord, now: Instant): JoinOutcome {
         val phase = phaseAt(now)
         val existing = participationOf(volunteer.userId)
@@ -87,7 +96,10 @@ class HelpRequestBooking(
         }
     }
 
-    /** R7: leaving is free until two hours before the start, late after that. */
+    /**
+     * R7: afmelden is gewoon (CANCELLED) tot twee uur vóór de start, daarna laat (LATE_CANCELLED).
+     * Na de start kan het niet meer. Wie van de wachtlijst afgaat, maakt geen plek vrij.
+     */
     fun leave(userId: Long, now: Instant): LeaveOutcome {
         val participation = participationOf(userId)
 
@@ -121,11 +133,13 @@ class HelpRequestBooking(
     }
 
     /**
-     * R8: who moves up from the waitlist into free places.
+     * R8: wie schuift er van de wachtlijst door naar een vrije plek?
      *
-     * Candidates are taken in waitlist order. A candidate who is now busy
-     * elsewhere (R5) or blocked (R11) is skipped and keeps their spot.
-     * Returns the promoted participations, ready to be saved.
+     * Kandidaten gaan op volgorde van de wachtlijst. Wie inmiddels ergens anders is ingeschreven
+     * (R5) of geblokkeerd is (R11), wordt overgeslagen en houdt zijn plek op de wachtlijst.
+     * `volunteerOf` is een functie als parameter: de service geeft mee hoe je een VolunteerRecord
+     * ophaalt, zodat deze klasse de database niet hoeft te kennen.
+     * Geeft de doorgeschoven aanmeldingen terug, klaar om op te slaan.
      */
     fun promotions(
         volunteerOf: (Long) -> VolunteerRecord,
@@ -154,7 +168,7 @@ class HelpRequestBooking(
         return promoted
     }
 
-    /** R9: after the start, the owner records who came and who did not. */
+    /** R9: na de start legt de eigenaar vast wie er kwam (ATTENDED) en wie niet (NO_SHOW). */
     fun markAttendance(
         actingUserId: Long,
         volunteerUserId: Long,
@@ -186,8 +200,9 @@ class HelpRequestBooking(
     }
 
     /**
-     * R13: closing before the start cancels every active participation.
-     * Nobody is blamed for this, so it is a normal cancellation.
+     * R13: sluit de eigenaar de hulpvraag vóór de start, dan worden alle actieve aanmeldingen
+     * geannuleerd. De vrijwilligers kunnen daar niets aan doen, dus het telt als een gewone
+     * afmelding en niet als een late.
      */
     fun cancellationsOnClose(now: Instant): List<HelpParticipation> {
         if (request.slot.hasStarted(now)) {

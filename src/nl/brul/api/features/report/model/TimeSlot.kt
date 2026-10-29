@@ -5,12 +5,14 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * A period with a fixed start and end, like a reservation.
+ * Laag: model (het domein).
  *
- * Value object (just like [Location]): two slots with the same start and end
- * are equal, and a slot can never exist with its start after its end.
- * All methods are pure: the current time is passed in as `now`, so the
- * rules can be tested with any fixed moment.
+ * Een periode met een vaste start en een vast eind, zoals een reservering. Elke hulpvraag heeft
+ * er één (`slot`).
+ * Value object, net als Location: twee tijdsloten met dezelfde start en hetzelfde eind zijn
+ * gelijk (`data class`), en `init` zorgt dat de start altijd vóór het eind ligt (R1).
+ * Alle functies zijn puur: de huidige tijd komt binnen als `now`, zodat je de regels met elk
+ * vast moment kunt testen.
  */
 data class TimeSlot(
     val start: Instant,
@@ -22,20 +24,24 @@ data class TimeSlot(
         }
     }
 
+    /** Hoe lang het tijdslot duurt; een hulpvraag mag maximaal 8 uur duren. */
     val duration: Duration
         get() = Duration.between(start, end)
 
     /**
-     * Two slots overlap when one starts before the other ends.
-     * Slots that only touch (10:00-12:00 and 12:00-14:00) do not overlap.
+     * R5: twee tijdsloten overlappen als het ene begint voordat het andere eindigt.
+     * Tijdsloten die elkaar alleen raken (10:00-12:00 en 12:00-14:00) overlappen niet.
      */
     fun overlaps(other: TimeSlot): Boolean =
         start < other.end && other.start < end
 
+    /** Begonnen als `now` op of na de start ligt. */
     fun hasStarted(now: Instant): Boolean = now >= start
 
+    /** Afgelopen als `now` op of na het eind ligt. */
     fun hasEnded(now: Instant): Boolean = now >= end
 
+    /** Hoe lang het nog duurt tot de start; negatief als de start al voorbij is (R7). */
     fun timeUntilStart(now: Instant): Duration =
         Duration.between(now, start)
 }

@@ -2,13 +2,17 @@
 package nl.brul.api.features.help.model
 
 /**
- * Results of the booking rules, returned as values instead of exceptions.
+ * Laag: model (het domein).
  *
- * A sealed type forces every caller to handle each outcome, and the tests
- * can compare outcomes directly. The service turns a rejection into the
- * matching HTTP error.
+ * De uitkomsten van de reserveringsregels, als waarden in plaats van exceptions.
+ * `sealed interface`: de lijst met mogelijke uitkomsten ligt vast. Een `when` over een uitkomst
+ * moet daardoor elke mogelijkheid afhandelen, anders compileert de code niet.
+ * Tests kunnen uitkomsten gewoon vergelijken, bijvoorbeeld met
+ * `assertEquals(JoinOutcome.SignedUp, ...)`.
+ * De service maakt van een afwijzing de juiste HTTP-fout (403 of 409 met een `code`).
  */
 
+/** Uitkomst van aanmelden: ingeschreven, op de wachtlijst (met positie) of afgewezen. */
 sealed interface JoinOutcome {
     data object SignedUp : JoinOutcome
     data class Waitlisted(val position: Int) : JoinOutcome
@@ -16,24 +20,25 @@ sealed interface JoinOutcome {
 }
 
 enum class JoinRejection {
-    /** R2 */
+    /** R2: je eigen hulpvraag. */
     OWN_REQUEST,
 
-    /** R3: started, ended or closed. */
+    /** R3: al begonnen, afgelopen of gesloten. */
     NOT_OPEN,
 
-    /** R4: already active, or a final status such as LATE_CANCELLED. */
+    /** R4: al actief, of een eindstatus zoals LATE_CANCELLED. */
     ALREADY_JOINED,
 
-    /** R11 */
+    /** R11: te veel no-shows. */
     BLOCKED,
 
-    /** R5 */
+    /** R5: in dezelfde tijd al ergens anders ingeschreven. */
     TIME_CONFLICT
 }
 
+/** Uitkomst van afmelden: gelukt (met de nieuwe status) of afgewezen. */
 sealed interface LeaveOutcome {
-    /** [freedPlace] is true when a SIGNED_UP place became available (R8). */
+    /** [freedPlace] is true als er een SIGNED_UP-plek vrijkwam (R8). */
     data class Left(
         val participation: HelpParticipation,
         val freedPlace: Boolean
@@ -45,10 +50,11 @@ sealed interface LeaveOutcome {
 enum class LeaveRejection {
     NOT_PARTICIPATING,
 
-    /** R7 */
+    /** R7: na de start kun je niet meer afmelden. */
     ALREADY_STARTED
 }
 
+/** Uitkomst van aanwezigheid vastleggen (R9): gemarkeerd of afgewezen. */
 sealed interface AttendanceOutcome {
     data class Marked(val participation: HelpParticipation) : AttendanceOutcome
     data class Rejected(val reason: AttendanceRejection) : AttendanceOutcome

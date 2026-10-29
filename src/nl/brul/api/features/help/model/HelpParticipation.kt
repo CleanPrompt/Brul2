@@ -4,19 +4,21 @@ package nl.brul.api.features.help.model
 import java.time.Instant
 
 /**
- * One volunteer's sign-up for one help request.
+ * Laag: model (het domein).
  *
- * Rows are never deleted: leaving, attending or not showing up are status
- * changes, so the history stays available (for example to count no-shows).
+ * Eén aanmelding van één vrijwilliger voor één hulpvraag, met een status (ParticipationStatus).
+ * Rijen worden nooit verwijderd: afmelden, komen opdagen of wegblijven zijn statuswijzigingen.
+ * Zo blijft de geschiedenis bewaard, bijvoorbeeld om no-shows te tellen (R11).
+ * `init` controleert dat alle id's positief zijn.
  */
 data class HelpParticipation(
     val id: Long,
     val helpRequestId: Long,
     val userId: Long,
     val status: ParticipationStatus = ParticipationStatus.SIGNED_UP,
-    /** Moment of (re)joining; decides the order on the waitlist. */
+    /** Moment van (opnieuw) aanmelden; bepaalt de volgorde op de wachtlijst. */
     val joinedAt: Instant = Instant.EPOCH,
-    /** Moment of the last status change. */
+    /** Moment van de laatste statuswijziging. */
     val changedAt: Instant = joinedAt
 ) {
     init {
@@ -37,8 +39,10 @@ data class HelpParticipation(
         get() = status.isActive
 
     /**
-     * Returns a copy with the new status, if the state machine allows it.
-     * Signing up again after a cancellation puts you at the back of the queue.
+     * Geeft een kopie met de nieuwe status, als de toestandsmachine dat toestaat; anders volgt een
+     * IllegalArgumentException.
+     * Wie zich na een afmelding opnieuw aanmeldt, sluit achteraan aan: `joinedAt` wordt dan `now`.
+     * `copy` maakt een nieuw object; het oude blijft onveranderd (immutable).
      */
     fun moveTo(next: ParticipationStatus, now: Instant): HelpParticipation {
         require(status.canMoveTo(next)) {

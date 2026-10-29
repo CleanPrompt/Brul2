@@ -10,17 +10,23 @@ import nl.brul.api.common.error.UnsupportedMediaTypeException
 import nl.brul.api.features.report.model.ImageFormat
 
 /**
- * F6: removes metadata such as GPS coordinates from an uploaded photo.
+ * Laag: service (de regels).
  *
- * The image is decoded to pixels and encoded again. Only the pixels are
- * written back, so EXIF data (location, camera, time) is gone.
- * Note: the EXIF orientation is lost too, so the app should rotate the
- * photo upright before uploading.
+ * F6: haalt metadata zoals GPS-coördinaten uit een geüploade foto.
+ * De afbeelding wordt ingelezen tot pixels en opnieuw opgeslagen. Alleen de pixels worden
+ * teruggeschreven, dus de EXIF-gegevens (locatie, camera, tijd) zijn weg. De melding heeft al een
+ * locatie; de foto hoeft niet ook te verraden waar de maker woont.
+ * Let op: ook de EXIF-oriëntatie verdwijnt. De app moet de foto dus rechtop zetten vóór het
+ * uploaden.
  */
 object ImageSanitizer {
 
     private const val JPEG_QUALITY = 0.9f
 
+    /**
+     * Geeft de schone bytes terug; een kapot bestand geeft 415 (UNSUPPORTED_TYPE).
+     * Een JPEG wordt opnieuw opgeslagen met kwaliteit 0,9 (90%).
+     */
     fun sanitize(bytes: ByteArray, format: ImageFormat): ByteArray {
         // A damaged file either returns null or throws while decoding.
         val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull()

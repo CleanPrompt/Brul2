@@ -16,6 +16,13 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
+/**
+ * Laag: repository (het geheugen).
+ *
+ * Beschrijft de tabel `report_photos`: de gegevens van elke foto, niet de afbeelding zelf.
+ * Wordt de melding verwijderd, dan verdwijnen de rijen mee (CASCADE). Wordt de uploader
+ * verwijderd, dan wordt `uploader_id` leeg (SET_NULL) en blijft de foto bestaan.
+ */
 object ReportPhotosTable : Table("report_photos") {
     val id = long("id").autoIncrement()
 
@@ -40,6 +47,12 @@ object ReportPhotosTable : Table("report_photos") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/**
+ * Laag: repository (het geheugen).
+ *
+ * Interface met de functies om foto-gegevens op te slaan en op te halen. ReportPhotoService kent
+ * alleen deze interface; de echte implementatie is ExposedReportPhotoRepository.
+ */
 interface ReportPhotoRepository {
 
     fun add(
@@ -58,11 +71,13 @@ interface ReportPhotoRepository {
 
     fun countByReport(reportId: Long): Int
 
+    /** Is er minstens één foto van deze soort? Nodig voor F8. */
     fun hasKind(reportId: Long, kind: PhotoKind): Boolean
 
     fun delete(id: Long): Boolean
 }
 
+/** De echte implementatie met Exposed en H2; elke functie draait in een `transaction`. */
 class ExposedReportPhotoRepository(
     private val database: Database
 ) : ReportPhotoRepository {
@@ -129,6 +144,7 @@ class ExposedReportPhotoRepository(
         ReportPhotosTable.deleteWhere { ReportPhotosTable.id eq id } > 0
     }
 
+    /** Zet een databaserij om naar een ReportPhoto. */
     private fun ResultRow.toPhoto(): ReportPhoto =
         ReportPhoto(
             id = this[ReportPhotosTable.id],

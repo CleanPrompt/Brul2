@@ -14,8 +14,14 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 
 /**
- * Exposed implementation. Each method opens a transaction; when it is
- * called inside a TransactionRunner block it joins that transaction instead.
+ * Laag: repository (het geheugen).
+ *
+ * De echte implementatie van HelpParticipationRepository, met Exposed en H2.
+ * Elke functie opent een `transaction`. Wordt hij aangeroepen binnen een blok van
+ * TransactionRunner, dan doet hij mee in die buitenste transactie in plaats van een eigen te
+ * starten. Zo kan de service lezen, beslissen en opslaan als één geheel.
+ * De status staat als tekst in de database (`status.name`) en wordt bij het teruglezen weer een
+ * enum (`ParticipationStatus.valueOf`).
  */
 class ExposedHelpParticipationRepository(
     private val database: Database
@@ -122,6 +128,7 @@ class ExposedHelpParticipationRepository(
             .toInt()
     }
 
+    /** Zet een databaserij om naar een HelpParticipation; tijden worden weer een `Instant`. */
     private fun ResultRow.toParticipation(): HelpParticipation =
         HelpParticipation(
             id = this[HelpParticipationsTable.id],

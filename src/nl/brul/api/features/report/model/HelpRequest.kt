@@ -57,7 +57,12 @@ class HelpRequest(
     }
 
     companion object {
-        /** R1: maximum length of a help request (agreed value, easy to change). */
+        /**
+         * R1: hoe lang een hulpvraag maximaal mag duren.
+         * Een afgesproken waarde: hier aanpassen is genoeg.
+         * `companion object`: hoort bij de klasse zelf, niet bij één hulpvraag. Je gebruikt het
+         * als `HelpRequest.MAX_SLOT_DURATION`.
+         */
         val MAX_SLOT_DURATION: Duration = Duration.ofHours(8)
     }
 }

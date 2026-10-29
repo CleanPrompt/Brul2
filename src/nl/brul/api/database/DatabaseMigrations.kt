@@ -15,21 +15,23 @@ import org.jetbrains.exposed.sql.update
 import org.slf4j.LoggerFactory
 
 /**
- * Small, explicit migrations for databases created before Periode 2.
+ * Laag: database (de verbinding met H2).
  *
- * SchemaUtils.create only creates tables that do not exist yet; it never adds
- * columns to an existing table. These statements add the new columns when
- * they are missing, so an existing data/brul.mv.db keeps working.
- * On a fresh database they change nothing.
+ * Kleine, expliciete migraties voor databases van vóór Periode 2.
+ * `SchemaUtils.create` maakt alleen tabellen die nog niet bestaan; aan een bestaande tabel voegt
+ * het nooit kolommen toe. Deze statements voegen de nieuwe kolommen toe als ze ontbreken, zodat
+ * een bestaande data/brul.mv.db blijft werken. Op een nieuwe database veranderen ze niets, en
+ * twee keer draaien kan ook geen kwaad (`IF NOT EXISTS`).
  */
 object DatabaseMigrations {
 
     private val logger = LoggerFactory.getLogger(DatabaseMigrations::class.java)
 
-    /** Old help requests without a slot get one: the day after creation, 2 hours. */
+    /** Oude hulpvragen zonder tijdslot krijgen er een: de dag na het aanmaken, 2 uur lang. */
     private val legacySlotOffset = Duration.ofDays(1).toMillis()
     private val legacySlotLength = Duration.ofHours(2).toMillis()
 
+    /** Wordt bij het opstarten aangeroepen door DatabaseFactory, binnen dezelfde transactie. */
     fun migrate(transaction: Transaction) {
         // Time slot of help requests (R1).
         transaction.addColumnIfMissing(ReportsTable.slotStart, "BIGINT NULL")

@@ -6,10 +6,12 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Where the bytes of photos are kept. The database only stores the key.
+ * Laag: repository (het geheugen).
  *
- * Behind an interface so the service does not care whether photos live on
- * disk or (in tests) in memory.
+ * Waar de bytes van foto's bewaard worden; de database slaat alleen de sleutel op (`storageKey`).
+ * Achter een interface, zodat de service niet hoeft te weten of foto's op schijf staan of (in
+ * tests) in het geheugen. Later kun je ook opslag in de cloud aansluiten zonder de service te
+ * veranderen.
  */
 interface PhotoStorage {
     fun save(key: String, bytes: ByteArray)
@@ -19,7 +21,7 @@ interface PhotoStorage {
     fun delete(key: String)
 }
 
-/** Stores each photo as a file in [root] (default: ./uploads). */
+/** Bewaart elke foto als bestand in [root] (standaard ./uploads, zie AppConfig). */
 class FileSystemPhotoStorage(
     private val root: Path
 ) : PhotoStorage {
@@ -49,7 +51,7 @@ class FileSystemPhotoStorage(
     }
 }
 
-/** Keeps photos in memory. Used in tests and handy for experiments. */
+/** Bewaart foto's in het geheugen. Gebruikt in tests, en handig om mee te experimenteren. */
 class InMemoryPhotoStorage : PhotoStorage {
 
     private val files = ConcurrentHashMap<String, ByteArray>()

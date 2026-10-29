@@ -3,9 +3,15 @@ package nl.brul.api.config
 
 import io.ktor.server.application.Application
 
+/**
+ * Laag: config (de instellingen).
+ *
+ * De instellingen uit application.yaml die de app nodig heeft, ingelezen met
+ * `AppConfig.from(application)`. Ontbreekt `brul.uploadsDir`, dan wordt het "uploads".
+ */
 data class AppConfig(
     val name: String,
-    /** Folder where uploaded photos are stored (brul.uploadsDir). */
+    /** Map waarin geüploade foto's worden bewaard (brul.uploadsDir, standaard "uploads"). */
     val uploadsDir: String = DEFAULT_UPLOADS_DIR
 ) {
     companion object {

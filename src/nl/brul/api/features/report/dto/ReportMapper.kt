@@ -42,8 +42,10 @@ private fun parseInstant(value: String, fieldName: String): Instant =
     }
 
 /**
- * Builds a time slot from the optional request fields.
- * Both fields must be given together, or both left out.
+ * Maakt een tijdslot van de twee optionele velden uit het request.
+ * Geef ze allebei mee of allebei niet; met maar één van de twee volgt 400 Bad Request.
+ * Geen van beide geeft `null`: dan heeft de melding geen tijdslot, of blijft bij een update het
+ * oude tijdslot staan.
  */
 private fun parseSlot(startsAt: String?, endsAt: String?): TimeSlot? {
     if (startsAt == null && endsAt == null) {

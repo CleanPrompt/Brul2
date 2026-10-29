@@ -19,12 +19,14 @@ import nl.brul.api.features.report.repository.PhotoStorage
 import nl.brul.api.features.report.repository.ReportPhotoRepository
 import nl.brul.api.features.report.repository.ReportRepository
 
+/** 404: de melding bestaat niet. */
 class ReportNotFoundException :
     DomainNotFoundException(
         code = "REPORT_NOT_FOUND",
         message = "Report not found."
     )
 
+/** 404: de foto bestaat niet, of het bestand is weg. */
 class PhotoNotFoundException :
     DomainNotFoundException(
         code = "PHOTO_NOT_FOUND",
@@ -32,10 +34,12 @@ class PhotoNotFoundException :
     )
 
 /**
- * Photos of reports (F1-F8).
+ * Laag: service (de regels).
  *
- * The rules are in [PhotoPolicy]; this service gathers the facts the policy
- * needs, cleans the image ([ImageSanitizer]) and stores bytes and metadata.
+ * Foto's bij meldingen (F1 t/m F8). De regels zelf staan in [PhotoPolicy]. Deze service verzamelt
+ * de feiten die de regels nodig hebben, maakt de afbeelding schoon ([ImageSanitizer]) en slaat de
+ * bytes (PhotoStorage) en de gegevens (ReportPhotoRepository) op.
+ * Foto's zijn voor iedereen zichtbaar, net als de meldingen zelf.
  */
 class ReportPhotoService(
     private val reportRepository: ReportRepository,
@@ -45,6 +49,12 @@ class ReportPhotoService(
     private val clock: Clock = Clock.systemUTC()
 ) {
 
+    /**
+     * Plaatst een foto bij een melding.
+     * Eerst beslist PhotoPolicy of het mag. Daarna wordt de foto schoongemaakt (F6) en krijgt hij
+     * een willekeurige bestandsnaam (UUID). Mislukt het opslaan van de gegevens, dan wordt het
+     * bestand weer verwijderd, zodat er geen los bestand achterblijft.
+     */
     fun upload(
         reportId: Long,
         uploaderId: Long,
@@ -101,18 +111,21 @@ class ReportPhotoService(
         }
     }
 
+    /** Alle foto's van een melding; 404 als de melding niet bestaat. */
     fun list(reportId: Long): List<ReportPhoto> {
         findReport(reportId)
         return photoRepository.findByReport(reportId)
     }
 
+    /** Het aantal foto's bij een melding, voor `photoCount` in ReportResponse. */
     fun count(reportId: Long): Int =
         photoRepository.countByReport(reportId)
 
+    /** F8: heeft deze melding een RESULT-foto? ReportService vraagt dit bij RESOLVED. */
     fun hasResultPhoto(reportId: Long): Boolean =
         photoRepository.hasKind(reportId, PhotoKind.RESULT)
 
-    /** The photo metadata together with its bytes. */
+    /** De gegevens van de foto samen met de bytes, voor GET /photos/{id}. */
     fun load(photoId: Long): Pair<ReportPhoto, ByteArray> {
         val photo = findPhoto(photoId)
         val bytes = storage.load(photo.storageKey) ?: throw PhotoNotFoundException()
@@ -120,7 +133,7 @@ class ReportPhotoService(
         return photo to bytes
     }
 
-    /** F7: the uploader or an admin may delete a photo. */
+    /** F7: de uploader of een admin mag een foto verwijderen; anders 403. */
     fun delete(
         photoId: Long,
         actingUserId: Long,
@@ -139,13 +152,16 @@ class ReportPhotoService(
         storage.delete(photo.storageKey)
     }
 
-    /** Keys of the files that belong to a report (read before deleting it). */
+    /**
+     * De sleutels van de bestanden bij een melding. ReportService leest ze vóór het verwijderen,
+     * want daarna zijn de rijen weg.
+     */
     fun storageKeysOf(reportId: Long): List<String> =
         photoRepository.findByReport(reportId).map { it.storageKey }
 
     /**
-     * F7: the database cascade removes the photo rows of a deleted report,
-     * but not the files. ReportService calls this after a successful delete.
+     * F7: de cascade in de database verwijdert de foto-rijen van een verwijderde melding, maar niet
+     * de bestanden. ReportService roept dit aan na een geslaagde delete.
      */
     fun deleteFiles(keys: List<String>) {
         keys.forEach { storage.delete(it) }
@@ -165,6 +181,7 @@ class ReportPhotoService(
     private fun now(): Instant =
         clock.instant().truncatedTo(ChronoUnit.MILLIS)
 
+    /** Zet een afwijzing van PhotoPolicy om in de juiste HTTP-fout (413, 415, 403 of 409). */
     private fun uploadError(reason: PhotoRejection): RuntimeException = when (reason) {
         PhotoRejection.TOO_LARGE ->
             PayloadTooLargeException(

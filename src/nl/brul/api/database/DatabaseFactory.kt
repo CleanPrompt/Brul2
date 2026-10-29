@@ -12,6 +12,13 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 
+/**
+ * Laag: database (de verbinding met H2).
+ *
+ * Maakt bij het opstarten de verbinding met de database, bouwt de tabellen op en vult de database
+ * met testdata als `database.seed` aan staat (standaard aan).
+ * `object`: er bestaat er precies één van; je hoeft er niets van te maken.
+ */
 object DatabaseFactory {
 
     fun init(application: Application): Database {
@@ -45,8 +52,9 @@ object DatabaseFactory {
     }
 
     /**
-     * Creates missing tables and brings an existing local database up to
-     * date (see DatabaseMigrations), so nobody has to delete data/ by hand.
+     * Maakt ontbrekende tabellen aan en werkt een bestaande lokale database bij (zie
+     * DatabaseMigrations), zodat niemand data/ met de hand hoeft te verwijderen.
+     * Staat los van `init`, zodat tests en de seeder dezelfde opbouw kunnen gebruiken.
      */
     fun createSchema(database: Database) {
         transaction(database) {

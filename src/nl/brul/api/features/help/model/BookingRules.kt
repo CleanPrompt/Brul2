@@ -4,17 +4,21 @@ package nl.brul.api.features.help.model
 import java.time.Duration
 
 /**
- * The agreed numbers behind the booking rules, in one place.
- * Change them here and every rule and test follows.
+ * Laag: model (het domein).
+ *
+ * De afgesproken getallen achter de reserveringsregels, op één plek.
+ * Pas je ze hier aan, dan volgen alle regels en tests vanzelf.
+ * `object`: er bestaat er precies één van. `const val` is een vaste waarde die al bij het
+ * compileren bekend is; een `Duration` kan dat niet, daarom is dat een gewone `val`.
  */
 object BookingRules {
 
-    /** R7: leaving at least this long before the start is a normal cancellation. */
+    /** R7: wie minstens zo lang vóór de start afmeldt, meldt gewoon af (CANCELLED). */
     val LATE_CANCELLATION_WINDOW: Duration = Duration.ofHours(2)
 
-    /** R11: this many no-shows within [NO_SHOW_WINDOW] blocks new sign-ups. */
+    /** R11: zoveel no-shows binnen [NO_SHOW_WINDOW] blokkeren nieuwe aanmeldingen. */
     const val NO_SHOW_LIMIT = 3
 
-    /** R11: how far back no-shows are counted. */
+    /** R11: hoe ver terug no-shows meetellen. */
     val NO_SHOW_WINDOW: Duration = Duration.ofDays(30)
 }

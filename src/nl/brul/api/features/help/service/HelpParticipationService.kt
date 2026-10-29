@@ -22,6 +22,10 @@ import nl.brul.api.features.report.model.HelpRequest
 import nl.brul.api.features.report.model.TimeSlot
 import nl.brul.api.features.report.repository.ReportRepository
 
+/**
+ * Samenvatting van één hulpvraag voor de app: hoeveel plekken, hoeveel bezet, hoe lang de
+ * wachtlijst is, in welke fase hij staat en wanneer het tijdslot is.
+ */
 data class HelpParticipationSummary(
     val helpRequestId: Long,
     val volunteersNeeded: Int,
@@ -32,19 +36,23 @@ data class HelpParticipationSummary(
     val slot: TimeSlot
 )
 
-/** Result of signing up: the saved participation and, if waitlisted, the position. */
+/** Resultaat van aanmelden: de opgeslagen aanmelding en, bij de wachtlijst, je positie. */
 data class JoinResult(
     val participation: HelpParticipation,
     val waitlistPosition: Int?
 )
 
-/** One line in a volunteer's agenda. */
+/** Eén regel in de agenda van een vrijwilliger: zijn aanmelding, de hulpvraag en de fase. */
 data class AgendaItem(
     val participation: HelpParticipation,
     val helpRequest: HelpRequest,
     val phase: HelpRequestPhase
 )
 
+/**
+ * Betrouwbaarheid van een vrijwilliger (R11): het aantal no-shows in de laatste 30 dagen, of hij
+ * geblokkeerd is en zo ja tot wanneer.
+ */
 data class Reliability(
     val noShowsInWindow: Int,
     val blocked: Boolean,
@@ -52,14 +60,19 @@ data class Reliability(
 )
 
 /**
- * Application service for help participation.
+ * Laag: service (de regels).
  *
- * It does not contain the booking rules itself. Every action follows the
- * same steps inside one transaction:
- *   1. lock the help request row (so concurrent requests wait their turn),
- *   2. load the HelpRequestBooking and the VolunteerRecord,
- *   3. ask the domain model for a decision,
- *   4. save the result, or turn a rejection into the matching error.
+ * De service van de feature help. De reserveringsregels zelf staan niet hier, maar in
+ * HelpRequestBooking (het domein). Elke actie volgt dezelfde stappen, binnen één transactie:
+ *
+ * 1. de rij van de hulpvraag vergrendelen, zodat gelijktijdige verzoeken op hun beurt wachten
+ *    (twee mensen die tegelijk de laatste plek nemen: precies één krijgt hem, zie test T14);
+ * 2. de HelpRequestBooking en het VolunteerRecord laden;
+ * 3. het domein om een beslissing vragen;
+ * 4. het resultaat opslaan, of een afwijzing omzetten in de juiste fout.
+ *
+ * De klok en de TransactionRunner komen via de constructor binnen (dependency injection): tests
+ * geven een vaste tijd mee en hebben geen echte transactie nodig (NoTransactionRunner).
  */
 class HelpParticipationService(
     private val participationRepository: HelpParticipationRepository,
@@ -68,6 +81,11 @@ class HelpParticipationService(
     private val transactions: TransactionRunner = NoTransactionRunner
 ) {
 
+    /**
+     * R2 t/m R6 en R11: meldt een vrijwilliger aan. Is de hulpvraag vol, dan komt hij op de
+     * wachtlijst en staat zijn positie in het resultaat.
+     * Had hij zich eerder gewoon afgemeld, dan wordt die oude aanmelding hergebruikt (R4).
+     */
     fun join(
         helpRequestId: Long,
         userId: Long
@@ -112,7 +130,10 @@ class HelpParticipationService(
         }
     }
 
-    /** Returns the participation with its new status (CANCELLED or LATE_CANCELLED). */
+    /**
+     * R7: meldt een vrijwilliger af en geeft de aanmelding terug met de nieuwe status (CANCELLED of
+     * LATE_CANCELLED). Komt er een plek vrij, dan schuift de wachtlijst meteen door (R8).
+     */
     fun leave(
         helpRequestId: Long,
         userId: Long
@@ -150,7 +171,7 @@ class HelpParticipationService(
         }
     }
 
-    /** R9: the owner records whether a volunteer came. */
+    /** R9: de eigenaar legt vast of een vrijwilliger is gekomen. */
     fun markAttendance(
         helpRequestId: Long,
         actingUserId: Long,
@@ -189,8 +210,8 @@ class HelpParticipationService(
     }
 
     /**
-     * Called after the owner changed a help request:
-     * closing it cancels everyone (R13), extra places promote the waitlist (R10).
+     * Wordt aangeroepen door ReportService nadat de eigenaar een hulpvraag heeft gewijzigd:
+     * sluiten annuleert iedereen (R13), extra plekken laten de wachtlijst doorschuiven (R10).
      */
     fun afterHelpRequestUpdated(
         helpRequestId: Long
@@ -209,6 +230,7 @@ class HelpParticipationService(
         }
     }
 
+    /** Alle aanmeldingen van een hulpvraag, in elke status; 404 als die niet bestaat. */
     fun getParticipants(
         helpRequestId: Long
     ): List<HelpParticipation> {
@@ -217,6 +239,7 @@ class HelpParticipationService(
         return participationRepository.findByHelpRequest(helpRequestId)
     }
 
+    /** De samenvatting voor de app; de fase wordt op dit moment berekend. */
     fun getSummary(
         helpRequestId: Long
     ): HelpParticipationSummary {
@@ -233,7 +256,11 @@ class HelpParticipationService(
         )
     }
 
-    /** The volunteer's agenda, sorted by start time. */
+    /**
+     * De agenda van een vrijwilliger, gesorteerd op starttijd.
+     * Met `upcomingOnly` alleen actieve aanmeldingen voor hulpvragen die nog niet voorbij zijn.
+     * `mapNotNull` slaat aanmeldingen over waarvan de hulpvraag niet (meer) bestaat.
+     */
     fun getAgenda(
         userId: Long,
         upcomingOnly: Boolean
@@ -260,6 +287,7 @@ class HelpParticipationService(
             .sortedBy { it.helpRequest.slot.start }
     }
 
+    /** R11: hoeveel no-shows tellen mee voor deze vrijwilliger, en is hij geblokkeerd? */
     fun getReliability(
         userId: Long
     ): Reliability {
@@ -273,7 +301,9 @@ class HelpParticipationService(
         )
     }
 
-    /** R8: fill free places from the waitlist. */
+    /**
+     * R8: vult vrije plekken aan vanaf de wachtlijst en slaat de doorgeschoven aanmeldingen op.
+     */
     private fun promoteWaitlist(
         helpRequestId: Long,
         now: Instant
@@ -288,7 +318,12 @@ class HelpParticipationService(
         }
     }
 
-    /** Builds the snapshot that the booking rules need for one volunteer. */
+    /**
+     * Bouwt de momentopname (VolunteerRecord) die de regels nodig hebben voor één vrijwilliger:
+     * de tijdsloten waar hij SIGNED_UP is en de momenten van zijn no-shows.
+     * De hulpvraag waar het nu om gaat, telt niet mee als afspraak (`excludeHelpRequestId`); anders
+     * zou die altijd met zichzelf overlappen.
+     */
     private fun loadVolunteer(
         userId: Long,
         excludeHelpRequestId: Long?
@@ -315,13 +350,17 @@ class HelpParticipationService(
         )
     }
 
+    /** Laadt de hulpvraag met al zijn aanmeldingen, zonder vergrendeling (alleen lezen). */
     private fun loadBooking(helpRequestId: Long): HelpRequestBooking =
         HelpRequestBooking(
             findHelpRequest(helpRequestId),
             participationRepository.findByHelpRequest(helpRequestId)
         )
 
-    /** Same as [loadBooking], but locks the help request row first. */
+    /**
+     * Hetzelfde als [loadBooking], maar vergrendelt eerst de rij van de hulpvraag (`FOR UPDATE`).
+     * Een tweede verzoek voor dezelfde hulpvraag wacht tot deze transactie klaar is.
+     */
     private fun loadBookingForUpdate(helpRequestId: Long): HelpRequestBooking {
         require(helpRequestId > 0) {
             "Help request ID must be positive."
@@ -336,6 +375,7 @@ class HelpParticipationService(
         )
     }
 
+    /** Zoekt de hulpvraag op; 404 als hij niet bestaat of geen hulpvraag is. */
     private fun findHelpRequest(id: Long): HelpRequest {
         require(id > 0) {
             "Help request ID must be positive."
@@ -349,6 +389,7 @@ class HelpParticipationService(
     private fun now(): Instant =
         clock.instant().truncatedTo(ChronoUnit.MILLIS)
 
+    /** Zet een afwijzing uit het domein om in de fout die de API teruggeeft (403 of 409). */
     private fun joinError(reason: JoinRejection): RuntimeException = when (reason) {
         JoinRejection.OWN_REQUEST ->
             HelpParticipationForbiddenException()

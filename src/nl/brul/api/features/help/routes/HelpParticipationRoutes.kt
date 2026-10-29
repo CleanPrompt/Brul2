@@ -18,6 +18,23 @@ import nl.brul.api.features.help.dto.AttendanceRequest
 import nl.brul.api.features.help.dto.toResponse
 import nl.brul.api.features.help.service.HelpParticipationService
 
+/**
+ * Laag: routes (de voordeur).
+ *
+ * De URL's onder /reports/{id}/participants; in Routing.kt komt daar /api/v1 voor.
+ *
+ * - GET /reports/{id}/participants: samenvatting (plekken, wachtlijst, fase, tijdslot), openbaar
+ * - GET /reports/{id}/participants/list: alle aanmeldingen met hun status, openbaar
+ * - POST /reports/{id}/participants: aanmelden, JWT nodig; 201 met SIGNED_UP, of WAITLISTED met
+ *   je positie
+ * - DELETE /reports/{id}/participants/me: afmelden, JWT nodig; 200 met de nieuwe status
+ * - PUT /reports/{id}/participants/{userId}/attendance: aanwezigheid vastleggen, alleen door de
+ *   eigenaar en pas na de start (R9)
+ *
+ * De routes bevatten zelf geen regels: ze lezen de invoer, roepen de service aan en sturen het
+ * antwoord terug. Een gebroken regel wordt een exception, en ErrorHandling maakt daar 403, 404
+ * of 409 van, met een `code` zoals TIME_CONFLICT.
+ */
 fun Route.helpParticipationRoutes(
     service: HelpParticipationService
 ) {
@@ -108,8 +125,14 @@ fun Route.helpParticipationRoutes(
 }
 
 /**
- * Personal volunteer data for the Android app.
- * Paths start with /users/me, next to the user feature's /users/{id}.
+ * Laag: routes (de voordeur).
+ *
+ * Persoonlijke gegevens van de ingelogde vrijwilliger, voor de Android-app. Alles vraagt een JWT.
+ * De paden beginnen met /users/me, naast /users/{id} van de feature user.
+ *
+ * - GET /users/me/participations: de agenda; met ?upcoming=true zonder afgelopen en geannuleerde
+ *   aanmeldingen
+ * - GET /users/me/reliability: no-shows in de laatste 30 dagen en of je daardoor geblokkeerd bent
  */
 fun Route.volunteerRoutes(
     service: HelpParticipationService
@@ -146,6 +169,7 @@ fun Route.volunteerRoutes(
     }
 }
 
+/** De user-id uit het JWT-token, of `null` als die ontbreekt of niet geldig is. */
 private fun RoutingCall.authenticatedUserId(): Long? =
     principal<JWTPrincipal>()
         ?.payload
@@ -153,6 +177,7 @@ private fun RoutingCall.authenticatedUserId(): Long? =
         ?.toLongOrNull()
         ?.takeIf { it > 0 }
 
+/** Zet het id uit de URL om naar een getal; geen geldig positief getal geeft 400. */
 private fun parseHelpRequestId(value: String?): Long {
     val id = value?.toLongOrNull()
 

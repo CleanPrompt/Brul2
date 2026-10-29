@@ -26,10 +26,11 @@ interface ReportRepository {
     fun findByIdAndIncrementViews(id: Long): Report? = findById(id)
 
     /**
-     * Reads a report and locks its row until the surrounding transaction
-     * ends, so two requests cannot change the same help request at once
-     * (for example two volunteers taking the last place).
-     * The default keeps simple test repositories compatible.
+     * Leest een melding en vergrendelt de rij tot het einde van de transactie, zodat twee verzoeken
+     * niet tegelijk dezelfde hulpvraag kunnen wijzigen (bijvoorbeeld twee vrijwilligers die allebei
+     * de laatste plek nemen).
+     * De standaardimplementatie (`= findById(id)`) houdt eenvoudige nep-repositories in tests
+     * werkend; de echte vergrendeling zit in ExposedReportRepository.
      */
     fun findByIdForUpdate(id: Long): Report? = findById(id)
 

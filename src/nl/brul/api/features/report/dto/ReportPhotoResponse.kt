@@ -4,6 +4,12 @@ package nl.brul.api.features.report.dto
 import kotlinx.serialization.Serializable
 import nl.brul.api.features.report.model.ReportPhoto
 
+/**
+ * Laag: dto (de vertaler tussen JSON en Kotlin).
+ *
+ * De JSON met de gegevens van één foto. De afbeelding zelf zit er niet in: die haal je op via
+ * `url` (GET /api/v1/photos/{id}). Zo blijft een lijst met foto's klein en snel.
+ */
 @Serializable
 data class ReportPhotoResponse(
     val id: Long,
@@ -13,10 +19,11 @@ data class ReportPhotoResponse(
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: String,
-    /** Relative URL that returns the image itself. */
+    /** Relatieve URL die de afbeelding zelf teruggeeft. */
     val url: String
 )
 
+/** Zet een ReportPhoto om naar de JSON hierboven en bouwt de `url`. */
 fun ReportPhoto.toResponse(): ReportPhotoResponse =
     ReportPhotoResponse(
         id = id,

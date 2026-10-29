@@ -6,13 +6,20 @@ import nl.brul.api.common.error.DomainConflictException
 import nl.brul.api.features.report.model.HelpRequest
 
 /**
- * Rules for changing an existing help request.
+ * Laag: service (de regels).
  *
- * Pure function: everything it needs is passed in, so it can be tested
- * without a database or a real clock.
+ * De regels voor het wijzigen van een bestaande hulpvraag:
+ *
+ * - R10: `volunteersNeeded` mag niet lager dan het aantal vrijwilligers dat al SIGNED_UP is
+ * - R12: het tijdslot ligt vast zodra de hulpvraag begonnen is of er iemand is ingeschreven
+ *   (409 SLOT_LOCKED); een nieuw tijdslot moet in de toekomst liggen
+ *
+ * Een pure functie: alles wat hij nodig heeft, komt binnen als parameter. Daardoor is hij te
+ * testen zonder database en zonder echte klok (zie HelpRequestUpdateRulesTest).
  */
 object HelpRequestUpdateRules {
 
+    /** Gooit een exception als de wijziging niet mag; anders gebeurt er niets. */
     fun validate(
         existing: HelpRequest,
         updated: HelpRequest,

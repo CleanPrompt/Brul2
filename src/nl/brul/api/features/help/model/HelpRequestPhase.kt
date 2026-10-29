@@ -4,26 +4,28 @@ package nl.brul.api.features.help.model
 import kotlinx.serialization.Serializable
 
 /**
- * Where a help request stands right now.
+ * Laag: model (het domein).
  *
- * Never stored: it is derived from the time slot, the number of
- * volunteers and the report status (see HelpRequestBooking.phaseAt).
- * Because of that it can never be out of date.
+ * Waar een hulpvraag op dit moment staat: OPEN, FULL, IN_PROGRESS, COMPLETED of CLOSED.
+ * De fase wordt nooit opgeslagen, maar telkens berekend uit het tijdslot, het aantal
+ * vrijwilligers en de status van de melding (zie `HelpRequestBooking.phaseAt`).
+ * Daardoor kan hij nooit verouderd zijn: om 10:00 begint een hulpvraag vanzelf, zonder dat er
+ * ergens een taak hoeft te draaien die de status aanpast.
  */
 @Serializable
 enum class HelpRequestPhase {
-    /** Before the start, with free places. */
+    /** Vóór de start, met vrije plekken. */
     OPEN,
 
-    /** Before the start, all places taken; new volunteers go on the waitlist. */
+    /** Vóór de start, alle plekken bezet; nieuwe vrijwilligers komen op de wachtlijst. */
     FULL,
 
-    /** The slot has started. */
+    /** Het tijdslot is begonnen. */
     IN_PROGRESS,
 
-    /** The slot has ended. */
+    /** Het tijdslot is voorbij. */
     COMPLETED,
 
-    /** The owner closed the request (status RESOLVED). */
+    /** De eigenaar heeft de hulpvraag gesloten (status RESOLVED). */
     CLOSED
 }
