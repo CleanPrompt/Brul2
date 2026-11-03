@@ -23,3 +23,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# ...
+graphify-out/
+.claude
+.codegraph/
+AGENTS.md
+CLAUDE.md
