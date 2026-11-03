@@ -24,6 +24,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Uploaded report photos
+uploads/
+
 # ...
 graphify-out/
 .claude

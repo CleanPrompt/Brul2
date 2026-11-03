@@ -14,8 +14,13 @@ import nl.brul.api.features.auth.service.AuthService
 import nl.brul.api.features.help.repository.ExposedHelpParticipationRepository
 import nl.brul.api.features.help.routes.helpParticipationRoutes
 import nl.brul.api.features.help.service.HelpParticipationService
+import nl.brul.api.features.report.repository.ExposedReportPhotoRepository
 import nl.brul.api.features.report.repository.ExposedReportRepository
+import nl.brul.api.features.report.repository.FileSystemPhotoStorage
+import nl.brul.api.features.report.repository.PhotoStorage
+import nl.brul.api.features.report.routes.reportPhotoRoutes
 import nl.brul.api.features.report.routes.reportRoutes
+import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
 import nl.brul.api.features.user.routes.userRoutes
@@ -26,6 +31,7 @@ import nl.brul.api.features.vote.service.VoteService
 import nl.brul.api.security.BCryptPasswordHasher
 import nl.brul.api.security.JwtService
 import org.jetbrains.exposed.sql.Database
+import java.nio.file.Path
 
 @Serializable
 data class HealthResponse(
@@ -36,17 +42,26 @@ data class HealthResponse(
 fun Application.configureRouting(
     config: AppConfig,
     database: Database,
-    jwtService: JwtService
+    jwtService: JwtService,
+    // Photo files are stored in the folder uploads/ (not in Git).
+    photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of("uploads"))
 ) {
     val reportRepository = ExposedReportRepository(database)
     val voteRepository = ExposedVoteRepository(database)
     val helpParticipationRepository =
         ExposedHelpParticipationRepository(database)
 
+    val photoService = ReportPhotoService(
+        reportRepository = reportRepository,
+        photoRepository = ExposedReportPhotoRepository(database),
+        storage = photoStorage
+    )
+
     val reportService = ReportService(
         repository = reportRepository,
         voteRepository = voteRepository,
-        helpParticipationRepository = helpParticipationRepository
+        helpParticipationRepository = helpParticipationRepository,
+        photoService = photoService
     )
 
     val voteService = VoteService(
@@ -82,6 +97,8 @@ fun Application.configureRouting(
             }
 
             reportRoutes(reportService)
+
+            reportPhotoRoutes(photoService)
 
             voteRoutes(
                 voteService = voteService,

@@ -10,6 +10,7 @@ import nl.brul.api.features.report.model.ReportStatus
 import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.model.NewReport
+import nl.brul.api.features.report.model.ReportPhoto
 
 private inline fun <reified T : Enum<T>> parseEnum(
     value: String,
@@ -114,5 +115,24 @@ fun Report.toResponse(): ReportResponse {
         createdAt = createdAt,
         viewCount = viewCount,
         ownerId = ownerId
+    )
+}
+
+/**
+ * Zet een ReportPhoto om naar de JSON voor de app en bouwt de `url` waarmee de afbeelding zelf
+ * opgehaald kan worden.
+ */
+fun ReportPhoto.toResponse(): ReportPhotoResponse {
+    return ReportPhotoResponse(
+        id = id,
+        reportId = reportId,
+        uploaderId = uploaderId,
+        contentType = contentType,
+        sizeBytes = sizeBytes,
+        createdAt = createdAt,
+        latitude = location?.latitude,
+        longitude = location?.longitude,
+        locationSource = locationSource?.name,
+        url = "/api/v1/photos/$id"
     )
 }

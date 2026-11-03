@@ -12,7 +12,9 @@ import nl.brul.api.features.vote.repository.VoteRepository
 class ReportService(
     private val repository: ReportRepository,
     private val voteRepository: VoteRepository? = null,
-    private val helpParticipationRepository: HelpParticipationRepository? = null
+    private val helpParticipationRepository: HelpParticipationRepository? = null,
+    // Optional: removes the photo files of a deleted report.
+    private val photoService: ReportPhotoService? = null
 ) {
 
     fun create(report: NewReport): Report =
@@ -64,9 +66,18 @@ class ReportService(
             "Report ID must be positive."
         }
 
-        // Related votes and participations are removed
+        // Related votes, participations and photo rows are removed
         // automatically by database foreign key cascades.
-        return repository.delete(id)
+        // Photo files are not, so they are cleaned up here.
+        val photoKeys = photoService?.storageKeysOf(id).orEmpty()
+
+        val deleted = repository.delete(id)
+
+        if (deleted) {
+            photoService?.deleteFiles(photoKeys)
+        }
+
+        return deleted
     }
 
     fun search(search: ReportSearch): List<Report> {

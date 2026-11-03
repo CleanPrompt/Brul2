@@ -1,6 +1,6 @@
 # Brul2 — Ontwerp: hulpvraag als reservering
 
-Opgesteld: 28 oktober 2026 · Maikel
+Opgesteld: 28 oktober 2026 · Maikel · Foto-sectie bijgewerkt: 3 november 2026
 
 ## Aanleiding en doel
 
@@ -197,54 +197,72 @@ Twee tabellen krijgen kolommen erbij, vier endpoints veranderen en er komen twee
 
 ## Foto's bij meldingen
 
-Elke melding kan foto's krijgen die in de Android-app worden gemaakt; dit hoort bij `features/report`. Het uploaden zelf is vooral techniek. De complexiteit waar de docenten naar vragen zit in de regels over wie, wanneer en hoeveel, en in de koppeling met status en tijdslot.
+Bijgewerkt op 3 november 2026 naar wat er op branch `Maikel-3-11-2026` gebouwd is. Elke melding kan foto's krijgen die in de Android-app worden gemaakt; dit hoort bij `features/report`. Bij elke foto wordt de plek opgeslagen waar hij gemaakt is: eerst uit de foto zelf (EXIF), anders uit de app. De logica zit in de regels over wie en hoeveel, en in het uitlezen van GPS uit de bytes van de foto.
 
 **Domein**
 
-- `ReportPhoto`: `id`, `reportId`, `uploaderId`, `kind`, `contentType`, `sizeBytes`, `storageKey`, `createdAt`.
-- `PhotoKind`: SITUATION (bij het melden: wat is er aan de hand) of RESULT (na afloop: opgeruimd of geholpen).
-- `PhotoPolicy`: een pure functie die met melding, uploader, bestaande foto's, upload en `now` beslist of het mag, met dezelfde aanpak als `JoinOutcome`.
-- `PhotoStorage`: een interface met `save`, `load` en `delete`. De echte versie is `FileSystemPhotoStorage` (map `uploads/`, pad in de database); tests gebruiken `InMemoryPhotoStorage`. Zo blijven de bytes buiten H2 en kun je zonder schijf testen.
+- `ReportPhoto`: `id`, `reportId`, `uploaderId`, `contentType`, `sizeBytes`, `storageKey`, `createdAt`, `location` en `locationSource` (PHOTO of APP). `init` controleert dat `location` en `locationSource` samen gevuld of samen leeg zijn.
+- `ImageFormat`: JPEG of PNG, herkend aan de eerste bytes van het bestand (`ImageFormat.detect`), niet aan de `Content-Type`-header.
+- `PhotoGpsReader`: een pure functie die in een JPEG het EXIF-blok zoekt en de GPS-coördinaten omrekent naar een `Location`. Hij kan zowel little- als big-endian aan en maakt zuid en west negatief. Bij een kapot of afgekapt bestand, of bij 0,0 (geen GPS-fix), geeft hij `null` en geen exception.
+- `PhotoRules`: een pure functie die met eigenaar ja/nee, grootte, formaat en het aantal bestaande foto's beslist of het mag. De uitkomst is een `PhotoRejection` of `null`.
+- `ReportPhotoService`: past de regels toe, kiest de locatie (G1/G2), slaat bestand en gegevens op en geeft een `PhotoUploadResult` (`Saved` of `Rejected`) terug in plaats van een exception. Mislukt het opslaan van de gegevens, dan wordt het bestand weer verwijderd, zodat er geen wees-bestanden blijven.
+- `PhotoStorage`: een interface met `save`, `load` en `delete`. De echte versie is `FileSystemPhotoStorage` (map `uploads/`, die niet in Git komt); tests gebruiken `InMemoryPhotoStorage`. Zo blijven de bytes buiten H2 en kun je zonder schijf testen.
 
 **Regels**
 
-| Nr | Regel | Soort | Bij overtreding |
-| --- | --- | --- | --- |
-| F1 | Alleen JPEG of PNG. Controle op de eerste bytes van het bestand, niet alleen op de `Content-Type`-header | kern | 415 `UNSUPPORTED_TYPE` |
-| F2 | Maximaal 5 MB per foto. Ktor stopt met lezen bij de limiet via `receiveMultipart(formFieldLimit = …)`, niet pas achteraf | kern | 413 `TOO_LARGE` |
-| F3 | Maximaal 3 foto's per melding | kern | 409 `PHOTO_LIMIT` |
-| F4 | Een SITUATION-foto plaatst alleen de eigenaar, en alleen zolang de melding niet RESOLVED is | kern | 403 of 409 |
-| F5 | Een RESULT-foto bij een hulpvraag plaatst alleen een vrijwilliger met SIGNED_UP of ATTENDED, en pas vanaf de start van het slot | kern | 403 of 409 `NOT_STARTED` |
-| F6 | GPS- en andere EXIF-gegevens worden bij upload verwijderd door de afbeelding opnieuw te encoderen. De melding heeft al een locatie; de foto hoeft niet ook te verraden waar de maker woont | kern | — |
-| F7 | Verwijderen mag de uploader of een admin. Wordt de melding verwijderd, dan ruimt de service ook de bestanden op; de cascade in de database verwijdert alleen de rijen | kern | 403 |
-| F8 | Een overlastmelding kan pas op RESOLVED als er een RESULT-foto is | uitbreiding | 409 `RESULT_PHOTO_REQUIRED` |
+Dezelfde nummers staan in de code en in de testnamen.
 
-Let op bij F6: met de EXIF-gegevens verdwijnt ook de draai-informatie, dus een telefoonfoto kan op zijn kant komen te staan. Laat de app de foto daarom vóór upload rechtop zetten en verkleinen, bijvoorbeeld tot maximaal 1600 pixels. Dat houdt bestanden ook ruim onder de 5 MB.
+| Nr | Regel | Waar | Bij overtreding |
+| --- | --- | --- | --- |
+| P1 | Alleen de eigenaar van de melding voegt foto's toe | `PhotoRules` | 403 |
+| P2 | Maximaal 5 MB per foto; precies 5 MB mag nog. De route weigert een te grote `Content-Length` meteen en leest nooit meer dan 5 MB + 1 byte | `PhotoRules` + route | 413 |
+| P3 | Alleen JPEG of PNG, gecontroleerd op de eerste bytes | `ImageFormat` + `PhotoRules` | 415 |
+| P4 | Maximaal 3 foto's per melding | `PhotoRules` | 409 |
+| P5 | Verwijderen mag de uploader of een admin. Wordt de melding verwijderd, dan ruimt de service ook de bestanden op; de cascade in de database verwijdert alleen de rijen | `ReportPhotoService`, `ReportService.delete` | 403 |
+| G1 | Heeft een JPEG GPS in zijn EXIF, dan is dat de locatie (`locationSource` = PHOTO). De foto wint van de app | `PhotoGpsReader` | — |
+| G2 | Zonder GPS in de foto gebruikt de service de `latitude` en `longitude` die de app meestuurt (APP). Stuurt de app er maar één, dan is dat een fout. Zonder beide heeft de foto geen locatie | `ReportPhotoService` + route | 400 |
+
+Bij meerdere overtredingen geldt de eerste in de volgorde P1 tot P4. Een melding die niet bestaat geeft 404. De foutmelding is nu een `ApiError` met alleen een tekst; een vaste `code` komt erbij zodra het foutcontract van Phuc er is.
+
+**Vervallen ten opzichte van het eerste ontwerp (28 oktober)**
+
+- **GPS verwijderen (oude F6):** vervallen. De groep had besloten om GPS en andere EXIF-gegevens bij upload te verwijderen. Nu wordt de GPS juist bewaard en getoond: hij blijft in het opgeslagen bestand en staat in de JSON. Omdat de foto's openbaar zijn, kan iedereen zien waar een foto gemaakt is. Zie Open beslissingen.
+- **`PhotoKind` SITUATION/RESULT met F5 en F8:** vervallen. Daarmee vervallen ook de regel dat een vrijwilliger pas na de start van het slot een RESULT-foto plaatst (F5), en de regel dat een overlastmelding alleen met een RESULT-foto op RESOLVED kan (F8). Ze hangen aan het tijdslot, en dat staat nog niet op deze branch. Dit kan later als uitbreiding terugkomen.
+- **Geen foto's meer bij RESOLVED (deel van oude F4):** niet gebouwd. Alleen de eigenaarsregel (P1) is overgebleven.
+- **`photoCount` in `GET /reports/{id}`:** niet gebouwd.
 
 **Database en API**
 
-Nieuwe tabel `report_photos`: `id`, `report_id` (cascade), `uploader_id`, `kind`, `content_type`, `size_bytes`, `storage_key`, `created_at`.
+Nieuwe tabel `report_photos`: `id`, `report_id` (cascade), `uploader_id` (wordt leeg als de gebruiker verdwijnt), `content_type`, `size_bytes`, `storage_key` (uniek), `created_at`, `latitude`, `longitude` en `location_source` (alle drie nullable), plus een index op `report_id`. `DatabaseFactory` maakt de tabel aan.
 
 | Methode en pad | Wat | Regels |
 | --- | --- | --- |
-| `POST /reports/{id}/photos` | Multipart met de velden `kind` en `photo`; 201 met de gegevens en een `url` | F1–F6 |
-| `GET /reports/{id}/photos` | Lijst met foto-gegevens en URL's | — |
+| `POST /reports/{id}/photos` | JWT nodig. Multipart met het veld `photo` en optioneel `latitude` en `longitude`. 201 met de gegevens, `latitude`, `longitude`, `locationSource` en een `url` | P1–P4, G1, G2 |
+| `GET /reports/{id}/photos` | Lijst met foto-gegevens, coördinaten en URL's; 404 als de melding niet bestaat | — |
 | `GET /photos/{photoId}` | De afbeelding zelf, met de juiste `Content-Type` | — |
-| `DELETE /photos/{photoId}` | Foto verwijderen | F7 |
-| `GET /reports/{id}` | Antwoord krijgt `photoCount` | — |
+| `DELETE /photos/{photoId}` | JWT nodig; 204, 403 of 404 | P5 |
 
-**Besloten:** foto's zijn voor iedereen zichtbaar, net als de meldingen zelf. `GET /reports/{id}/photos` en `GET /photos/{photoId}` werken dus zonder login; uploaden en verwijderen vereisen wel een JWT. Omdat de foto's openbaar zijn, is F6 extra belangrijk.
+**Besloten:** foto's zijn voor iedereen zichtbaar, net als de meldingen zelf. `GET /reports/{id}/photos` en `GET /photos/{photoId}` werken dus zonder login; uploaden en verwijderen vereisen wel een JWT.
 
 **Tests**
 
-| Nr | Regel | Gegeven | Wanneer | Dan | Soort |
-| --- | --- | --- | --- | --- | --- |
-| P1 | F1 | Bytes van een PDF met header `image/jpeg` | Upload | `UNSUPPORTED_TYPE` | unit |
-| P2 | F3 | Melding heeft al 3 foto's | Vierde upload | `PHOTO_LIMIT` | unit |
-| P3 | F5 | Vrijwilliger is SIGNED_UP bij H; nu 09:00, daarna 10:30 | RESULT-foto | `NOT_STARTED`; toegestaan | unit |
-| P4 | F6 | JPEG met GPS-gegevens | Opslaan | Opgeslagen bestand bevat geen EXIF-blok | unit |
-| P5 | F2 | Bestand van 6 MB | `POST /reports/{id}/photos` | 413; niets opgeslagen | integratie |
-| P6 | F7 | Melding met 2 foto's in `InMemoryPhotoStorage` | `DELETE /reports/{id}` | Beide bestanden weg uit de opslag | integratie |
+Unittests zonder database (met fakes):
+
+| Testklasse | Wat er getest wordt | Aantal |
+| --- | --- | --- |
+| `PhotoGpsReaderTest` | G1: GPS uitlezen, ook big-endian, zuid/west negatief; geen locatie bij geen EXIF, PNG, 0,0, rommel en afgekapte bestanden | 8 |
+| `PhotoRulesTest` | P1–P4, de grens van precies 5 MB en welke regel als eerste geldt | 6 |
+| `ReportPhotoServiceTest` | G1, G2, opslag onder een willekeurige naam, de regels, geen wees-bestand als opslaan mislukt, laden en verwijderen (P5) | 16 |
+| `ReportPhotoModelTest` | Formaatherkenning en de controles in `ReportPhoto.init` | 5 |
+
+API-test met een echte H2-database (`ReportPhotoRoutesTest`, 12 tests):
+
+- upload door de eigenaar geeft 201 met de GPS uit de foto;
+- de terugval op de app en een foto zonder locatie;
+- de lijst en het downloaden van de afbeelding;
+- 401 zonder JWT, 403 voor een ander, 415, 409 bij de vierde foto, 400 bij één coördinaat en 404 bij een onbekende melding;
+- verwijderen door de uploader, terwijl een ander 403 krijgt;
+- bij het verwijderen van een melding verdwijnen ook de bestanden.
 
 Dit pakket is van Maikel. Om de last te verdelen gaan R12 en R14 naar Phuc (zie Taakverdeling).
 
@@ -278,7 +296,7 @@ Iedereen houdt zijn eigen feature en krijgt minstens één regel met echte logic
 
 | Wie | Pakket | Regels | Tests | Kan starten |
 | --- | --- | --- | --- | --- |
-| Maikel (report) | `TimeSlot`; slot op `HelpRequest`, `NewReport`, DTO's en mapper; kolommen in `reports`; seeder met tijden ten opzichte van nu; foto's bij meldingen | R1, R10, F1–F8 | T1, T2, P1–P6 | Direct |
+| Maikel (report) | `TimeSlot`; slot op `HelpRequest`, `NewReport`, DTO's en mapper; kolommen in `reports`; seeder met tijden ten opzichte van nu; foto's bij meldingen | R1, R10, P1–P5, G1–G2 | T1, T2, fototests (35 unit, 12 API) | Direct |
 | Kelvin (help) | `ParticipationStatus`, `HelpParticipation`, `HelpRequestBooking` (`join`, `leave`, `promote`, `phaseAt`); service met `Clock`, `TransactionRunner` en `forUpdate()`; endpoints aanmelden, afmelden en samenvatting | R2–R8 | T3–T7, T10, T11, T14, T15 | Direct met het model; na stap 1 met het echte slot |
 | Joselyn (vote) | Aanwezigheid registreren en betrouwbaarheid: `markAttendance`, `VolunteerRecord.isBlocked`, sluiten met annuleren; attendance-endpoint | R9, R11, R13 | T8, T9 | Na `ParticipationStatus` |
 | Natasja (user) | `GET /users/me/participations` (agenda) en `/reliability`; de query die een `VolunteerRecord` vult (slots elders + no-shows) | — (levert data voor R5 en R11) | Integratietest agenda | Na de tabelwijziging |
@@ -303,6 +321,7 @@ Deze punten beslist de groep vóór stap 2. De voorstellen staan erbij.
 - [ ] Opnieuw aanmelden na een late afmelding: verbieden (voorstel) of toestaan?
 - [ ] Mag je op de wachtlijst van twee overlappende hulpvragen staan? Voorstel: ja, want de overlap wordt bij het doorschuiven gecontroleerd (R8).
 - [ ] Opruimen vóór het volgende assessment: `docs/01-vastgestelde-ontwerpkeuzes.md` gaat over PocketBattleAPI, `help/model/aaa.md` is een kopie van het draaiboek, en de slides noemen ~35 tests terwijl het draaiboek 268 zegt.
+- [ ] GPS in openbare foto's: bewaren en tonen (zoals nu gebouwd) of toch verwijderen bij upload (oude F6)? De groep had eerst voor verwijderen gekozen.
 - [ ] Aan Eric vragen welke vorm hij voor de AI-reflectie wil: een logboek, een reflectieverslag of beide.
 
 **AI-logboek.** De slide met AI-verantwoording heeft nu drie punten. Houd per keer dat een AI-tool echt iets bijdraagt een regel bij: wat je vroeg, wat eruit kwam, wat je veranderde of afkeurde, en hoe je het controleerde. Dit ontwerp is zelf ook met AI gemaakt (Claude, op basis van de Brul2-code), dus dat is meteen de eerste regel.
@@ -310,5 +329,6 @@ Deze punten beslist de groep vóór stap 2. De voorstellen staan erbij.
 | Datum | Wie | Tool | Waarvoor | Wat het opleverde | Wat we veranderden of afkeurden | Hoe gecontroleerd |
 | --- | --- | --- | --- | --- | --- | --- |
 | 28-10-2026 | Maikel | Claude | Ontwerp voor complexere domeinlogica na de feedback | Dit document: regels, klassen, tests en taakverdeling | | |
+| 03-11-2026 | Maikel | Claude | Foto's met GPS bij meldingen | Code en tests voor uploaden, GPS uit EXIF met terugval op de app, en deze bijgewerkte foto-sectie | | |
 | | | Gemini / Antigravity | Kotlin-code (voorbeeld uit de slides) | Code met `String.format`, een Java-patroon | Herschreven naar Kotlin-syntax | Unittests |
 | | | | | | | |
