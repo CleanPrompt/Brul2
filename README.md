@@ -10,7 +10,7 @@ Brul2 is developed as a second-year HBO Informatica school project. The project 
 
 The core API functionality is implemented and tested.
 
-**Latest confirmed test result: 380 tests passed, 0 failures** (after the Periode 2 additions below).
+**Latest confirmed test result: 435 tests passed, 0 failures** (after the Periode 2 additions below).
 
 | Checkpoint | Description | Status |
 |---|---|---|
@@ -40,6 +40,7 @@ reservation. The rules (R1–R14) and photo rules (F1–F8) are described in
 - After the start, the owner records who attended; 3 no-shows in 30 days block new sign-ups.
 - Reports can have up to 3 photos (JPEG/PNG, max 5 MB); location data is removed on upload.
 - Error responses for broken business rules contain a fixed `code`, for example `{"message": "...", "code": "TIME_CONFLICT"}`.
+- Report assistant: suggests a type and category from the text (S1–S3) and finds existing reports about the same situation (D1–D6). It uses AI when `ANTHROPIC_API_KEY` is set in `.env`, otherwise fixed keyword and word rules.
 
 ---
 
@@ -621,6 +622,18 @@ The participation summary provides:
 | GET | `/photos/{photoId}` | Public |
 | DELETE | `/photos/{photoId}` | JWT (uploader or admin) |
 
+### Report Assistant
+
+Called while a report is being written, before `POST /reports`. Nothing is stored.
+
+| Method | Endpoint | Authentication |
+|---|---|---|
+| POST | `/reports/suggestion` (`title`, `description`) | JWT |
+| POST | `/reports/duplicates` (`type`, `title`, `description`, `latitude`, `longitude`, optional `category`) | JWT |
+
+`/reports/suggestion` returns `200` with `type`, `category`, `urgent` and `source` (`AI` or `KEYWORDS`), or `204` when nothing is recognised.
+`/reports/duplicates` returns `200` with at most 5 similar open reports of the same type within 250 m and 14 days, each with `distanceMeters` and `similarity`.
+
 ---
 
 ## Example Requests
@@ -801,6 +814,8 @@ module.yaml
 
 Use `.env.example` as a reference for required environment variables.
 
+`ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` are optional. Without a key, the report assistant uses its keyword and word rules.
+
 Do not commit real passwords, JWT secrets or other credentials.
 
 Ensure `.env` is excluded from Git tracking.
@@ -856,7 +871,7 @@ Brul2 contains automated unit and integration tests.
 
 ### Current Test Result
 
-**380 tests passed — 0 failures.**
+**435 tests passed — 0 failures.**
 
 This result was confirmed after implementing the Periode 2 additions (time slots, waitlist, attendance and report photos).
 

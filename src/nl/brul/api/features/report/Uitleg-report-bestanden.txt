@@ -39,6 +39,10 @@ ReportResponse
     De JSON die de API terugstuurt: alle velden van een melding, plus
     status, createdAt, viewCount en ownerId.
 
+ReportPhotoResponse
+    De JSON voor één foto: id, melding, uploader, soort (SITUATION/RESULT),
+    formaat, grootte, tijd en de URL om de afbeelding op te halen.
+
 UpdateReportRequest
     De JSON bij het wijzigen van een melding (PUT). Dezelfde velden als bij
     create, plus de nieuwe status.
@@ -72,13 +76,23 @@ NuisanceReport
     Geen extra veld.
 
 HelpRequest
-    Subklasse voor hulpvragen.
+    Subklasse voor hulpvragen. Heeft ook een tijdslot (slot), maximaal 8 uur.
     Toegestane categorieën: GROCERIES, TRANSPORT, MOVING, CHORES en OTHER.
     Extra veld: volunteersNeeded, minimaal 1.
 
 Location
     Een plek, met breedte- en lengtegraad die in init gecontroleerd worden.
     distanceTo() berekent de afstand in km (haversine).
+
+TimeSlot
+    Een periode met start en eind (value object, net als Location). Start
+    ligt altijd vóór het eind. overlaps(), hasStarted() en hasEnded() krijgen
+    de tijd mee als parameter, zodat je ze met een vaste tijd kunt testen.
+
+ReportPhoto.kt
+    Drie dingen: PhotoKind (SITUATION of RESULT), ImageFormat (JPEG of PNG,
+    herkend aan de eerste bytes van het bestand) en ReportPhoto (de gegevens
+    van één opgeslagen foto; de afbeelding zelf staat in PhotoStorage).
 
 NewReport
     Een melding vóór het opslaan, dus nog zonder id. Controleert met
@@ -144,6 +158,15 @@ ReportsTable
     volunteers_needed mogen leeg zijn. owner_id verwijst naar users; wordt
     een gebruiker verwijderd, dan wordt dat veld leeg (SET_NULL).
 
+PhotoStorage.kt
+    Waar de bytes van foto's staan. Interface PhotoStorage, met
+    FileSystemPhotoStorage (map uploads/) en InMemoryPhotoStorage (voor tests).
+
+ReportPhotoRepository.kt
+    De tabel report_photos, de interface ReportPhotoRepository en de echte
+    implementatie ExposedReportPhotoRepository. Foto-rijen verdwijnen via
+    CASCADE als de melding wordt verwijderd.
+
 
 routes/  -  DE VOORDEUR
 -----------------------
@@ -157,6 +180,15 @@ ReportRoutes.kt
     - PUT mag alleen de eigenaar doen.
     - DELETE mag de eigenaar of een ADMIN doen.
     Kiest ook de statuscodes: 200, 201, 204, 401, 403 en 404.
+
+ReportPhotoRoutes.kt
+    Foto's: GET /reports/{id}/photos en GET /photos/{photoId} zijn openbaar;
+    POST /reports/{id}/photos (multipart: kind en photo) vraagt een JWT;
+    DELETE /photos/{photoId} mag de uploader of een ADMIN.
+
+ReportAssistantRoutes.kt
+    Meldassistent: POST /reports/suggestion (200 met voorstel, of 204) en
+    POST /reports/duplicates (200 met lijst). Allebei alleen met JWT.
 
 
 service/  -  DE REGELS
@@ -198,3 +230,20 @@ ReportStatusRules
     Een object met één functie, validateTransition(). OPEN mag naar
     IN_PROGRESS of RESOLVED, IN_PROGRESS alleen naar RESOLVED, en RESOLVED
     is het eindstation.
+
+HelpRequestUpdateRules
+    Regels voor het wijzigen van een hulpvraag: volunteersNeeded nooit lager
+    dan het aantal ingeschreven vrijwilligers (R10), en het tijdslot ligt vast
+    zodra hij begonnen is of er iemand is ingeschreven (R12, 409 SLOT_LOCKED).
+
+PhotoPolicy
+    De fotoregels F1 t/m F5 als één pure functie: JPEG/PNG, max 5 MB, max 3
+    per melding, wie welke soort foto mag plaatsen en wanneer. Geeft een
+    PhotoDecision terug (Allowed of Rejected met reden).
+
+ImageSanitizer
+    F6: haalt metadata zoals GPS uit een foto door hem opnieuw op te slaan.
+
+ReportPhotoService
+    Verzamelt wat PhotoPolicy nodig heeft, maakt de foto schoon, slaat bytes
+    en gegevens op en ruimt bestanden op bij verwijderen (F7, F8).
