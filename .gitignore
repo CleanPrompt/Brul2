@@ -25,3 +25,12 @@ Thumbs.db
 *.log
 # Uploaded report photos
 uploads/
+
+
+
+# ...
+graphify-out/
+.claude
+.codegraph/
+AGENTS.md
+CLAUDE.md
