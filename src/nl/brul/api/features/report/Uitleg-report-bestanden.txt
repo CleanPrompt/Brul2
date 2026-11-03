@@ -43,6 +43,14 @@ UpdateReportRequest
     De JSON bij het wijzigen van een melding (PUT). Dezelfde velden als bij
     create, plus de nieuwe status.
 
+SuggestionRequest / SuggestionResponse
+    Meldassistent: de tekst die de gebruiker typt, en het voorstel dat terug
+    gaat (type, categorie, urgent en of de AI of de trefwoorden het deden).
+
+DuplicateCheckRequest / DuplicateCandidateResponse
+    Meldassistent: de melding die iemand wil maken, en de bestaande meldingen
+    die er waarschijnlijk op lijken (met afstand in meters en gelijkenis).
+
 
 model/  -  HET DOMEIN, WAT EEN MELDING ÍS
 -----------------------------------------
@@ -84,6 +92,37 @@ ReportStatus
 
 ReportType
     Enum met de drie soorten: SAFETY, NUISANCE en HELP_REQUEST.
+
+ReportSuggestion
+    Een voorstel voor type en categorie. init bewaakt dezelfde regels als
+    NewReport (S2), dus ook de AI kan geen onmogelijke combinatie voorstellen.
+
+DuplicateQuery
+    De melding die iemand wil maken, nog vóór het opslaan: type, tekst,
+    locatie en eventueel categorie.
+
+DuplicateCandidate
+    Een bestaande melding die misschien hetzelfde is, met de afstand en
+    hoeveel de woorden lijken (0.0 tot 1.0).
+
+
+ai/  -  DE KOPPELING MET DE AI
+------------------------------
+
+ReportAssistantAi
+    Interface: wat de AI moet kunnen (categorie voorstellen, dubbele kiezen),
+    zonder te zeggen welke AI. Net als ReportRepository: Dependency Inversion,
+    zodat je met een nep-AI kunt testen.
+
+ClaudeReportAssistantAi
+    De echte implementatie: maakt de vraag (prompt) en controleert het
+    antwoord. Geen geldige JSON of een verzonnen id? Dan geen antwoord, en
+    valt de service terug op de vaste regels.
+
+AiTextClient.kt
+    AiTextClient (fun interface: vraag erin, tekst eruit) en ClaudeTextClient,
+    die echt met de Claude API praat. De sleutel komt uit .env
+    (ANTHROPIC_API_KEY). Alleen titel en beschrijving gaan naar de AI.
 
 
 repository/  -  OPSLAAN IN DE DATABASE
@@ -137,6 +176,23 @@ ReportService
     - delete() laat stemmen en deelnames over aan de database (CASCADE).
     - search() filtert en sorteert met filter en sortedWith (functioneel
       programmeren).
+
+ReportAssistantService
+    De meldassistent: suggest() (S1, S3) en findDuplicates() (D1 t/m D6).
+    Eerst de AI; geen AI of een fout? Dan de vaste regels. De app blijft dus
+    altijd werken.
+
+KeywordClassifier
+    S3: het reserveplan zonder AI. Kiest de categorie met de meeste
+    trefwoorden ("gestol" vindt "gestolen").
+
+DuplicateRules
+    D1 t/m D5: hetzelfde type, niet opgelost, binnen 250 meter, niet ouder dan
+    14 dagen; zonder AI telt ook hoeveel de woorden lijken (Jaccard-index).
+
+TextWords
+    Maakt van tekst losse woorden (kleine letters, geen accenten, zonder
+    stopwoorden). Gedeeld door KeywordClassifier en DuplicateRules.
 
 ReportStatusRules
     Een object met één functie, validateTransition(). OPEN mag naar

@@ -18,12 +18,15 @@ import nl.brul.api.features.help.repository.ExposedHelpParticipationRepository
 import nl.brul.api.features.help.routes.helpParticipationRoutes
 import nl.brul.api.features.help.routes.volunteerRoutes
 import nl.brul.api.features.help.service.HelpParticipationService
+import nl.brul.api.features.report.ai.ReportAssistantAi
 import nl.brul.api.features.report.repository.ExposedReportRepository
 import nl.brul.api.features.report.repository.ExposedReportPhotoRepository
 import nl.brul.api.features.report.repository.FileSystemPhotoStorage
 import nl.brul.api.features.report.repository.PhotoStorage
+import nl.brul.api.features.report.routes.reportAssistantRoutes
 import nl.brul.api.features.report.routes.reportPhotoRoutes
 import nl.brul.api.features.report.routes.reportRoutes
+import nl.brul.api.features.report.service.ReportAssistantService
 import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
@@ -47,7 +50,9 @@ fun Application.configureRouting(
     database: Database,
     jwtService: JwtService,
     clock: Clock = Clock.systemUTC(),
-    photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of(config.uploadsDir))
+    photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of(config.uploadsDir)),
+    // Optional: without an API key the assistant uses its keyword and word rules.
+    assistantAi: ReportAssistantAi? = null
 ) {
     val transactions = ExposedTransactionRunner(database)
 
@@ -81,6 +86,12 @@ fun Application.configureRouting(
         photoService = photoService
     )
 
+    val assistantService = ReportAssistantService(
+        repository = reportRepository,
+        ai = assistantAi,
+        clock = clock
+    )
+
     val voteService = VoteService(
         voteRepository = voteRepository,
         reportRepository = reportRepository
@@ -111,6 +122,8 @@ fun Application.configureRouting(
             reportRoutes(reportService, photoService)
 
             reportPhotoRoutes(photoService)
+
+            reportAssistantRoutes(assistantService)
 
             voteRoutes(
                 voteService = voteService,

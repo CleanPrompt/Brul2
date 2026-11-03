@@ -11,6 +11,10 @@ import nl.brul.api.features.report.model.ReportType
 import nl.brul.api.features.report.model.SafetyReport
 import nl.brul.api.features.report.model.NewReport
 import nl.brul.api.features.report.model.TimeSlot
+import nl.brul.api.features.report.model.DuplicateCandidate
+import nl.brul.api.features.report.model.DuplicateQuery
+import nl.brul.api.features.report.model.ReportSuggestion
+import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.format.DateTimeParseException
 
@@ -187,5 +191,42 @@ fun Report.toResponse(photoCount: Int? = null): ReportResponse {
         startsAt = slot?.start?.toString(),
         endsAt = slot?.end?.toString(),
         photoCount = photoCount
+    )
+}
+
+/**
+ * Zet een DuplicateCheckRequest om naar een DuplicateQuery.
+ * Tekst wordt enums (type en eventueel categorie) en de coördinaten worden een Location.
+ * Daarna controleert DuplicateQuery in zijn `init` zelf of alles klopt.
+ */
+fun DuplicateCheckRequest.toDuplicateQuery(): DuplicateQuery {
+    return DuplicateQuery(
+        type = parseEnum<ReportType>(type, "report type"),
+        title = title,
+        description = description,
+        location = Location(latitude, longitude),
+        category = category?.let { parseEnum<ReportCategory>(it, "report category") }
+    )
+}
+
+/** Zet een ReportSuggestion om naar de JSON voor de app. */
+fun ReportSuggestion.toResponse(): SuggestionResponse {
+    return SuggestionResponse(
+        type = type.name,
+        category = category.name,
+        urgent = urgent,
+        source = source.name
+    )
+}
+
+/**
+ * Zet een DuplicateCandidate om naar de JSON voor de app: de melding zelf, de afstand in hele
+ * meters en de gelijkenis afgerond op twee decimalen.
+ */
+fun DuplicateCandidate.toResponse(): DuplicateCandidateResponse {
+    return DuplicateCandidateResponse(
+        report = report.toResponse(),
+        distanceMeters = (distanceKm * 1000).roundToInt(),
+        similarity = (similarity * 100).roundToInt() / 100.0
     )
 }

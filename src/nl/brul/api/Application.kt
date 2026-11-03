@@ -4,6 +4,8 @@ package nl.brul.api
 import io.github.cdimascio.dotenv.dotenv
 import io.ktor.server.application.Application
 import nl.brul.api.config.AppConfig
+import nl.brul.api.features.report.ai.ClaudeReportAssistantAi
+import nl.brul.api.features.report.ai.ClaudeTextClient
 import nl.brul.api.database.DatabaseFactory
 import nl.brul.api.plugins.configureErrorHandling
 import nl.brul.api.plugins.configureRouting
@@ -40,6 +42,18 @@ fun Application.module() {
 
     val jwtService = JwtService(jwtConfig)
 
+    // Optional AI for the report assistant: only when ANTHROPIC_API_KEY is set in .env.
+    // Without a key the assistant still works with its keyword and word rules.
+    val assistantAi = dotenv["ANTHROPIC_API_KEY"]
+        ?.takeIf { it.isNotBlank() }
+        ?.let { apiKey ->
+            val model = dotenv["ANTHROPIC_MODEL"]
+                ?.takeIf { it.isNotBlank() }
+                ?: ClaudeTextClient.DEFAULT_MODEL
+
+            ClaudeReportAssistantAi(ClaudeTextClient(apiKey, model))
+        }
+
     configureSerialization()
     configureErrorHandling()
     configureSecurity(jwtConfig)
@@ -49,6 +63,7 @@ fun Application.module() {
     configureRouting(
         config = config,
         database = database,
-        jwtService = jwtService
+        jwtService = jwtService,
+        assistantAi = assistantAi
     )
 }

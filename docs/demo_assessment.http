@@ -367,5 +367,47 @@ Authorization: Bearer {{bobToken}}
 }
 
 ### ------------------------------------------------------------------------------
+### STAP 11: MELDASSISTENT (Maikel) - categorie voorstellen en dubbele meldingen
+### Zonder ANTHROPIC_API_KEY in .env werken de vaste regels ("source": "KEYWORDS")
+### ------------------------------------------------------------------------------
+
+# 11a. Voorstel voor type en categorie (S1) -> SAFETY / THEFT
+POST {{baseUrl}}/reports/suggestion
+Content-Type: application/json
+Authorization: Bearer {{anastasiaToken}}
+
+{
+  "title": "Fiets weg",
+  "description": "Mijn fiets is vannacht gestolen bij het station"
+}
+
+###
+
+# 11b. Niets te herkennen -> 204 No Content
+POST {{baseUrl}}/reports/suggestion
+Content-Type: application/json
+Authorization: Bearer {{anastasiaToken}}
+
+{
+  "title": "Hallo",
+  "description": "Even een vraagje"
+}
+
+###
+
+# 11c. Bestaat deze melding al? (D1-D6) -> lijst van meldingen die erop lijken
+POST {{baseUrl}}/reports/duplicates
+Content-Type: application/json
+Authorization: Bearer {{anastasiaToken}}
+
+{
+  "type": "NUISANCE",
+  "title": "Lawaai studentenflat",
+  "description": "Harde muziek op het balkon na middernacht",
+  "latitude": 51.588,
+  "longitude": 4.785
+}
+
+### ------------------------------------------------------------------------------
 ### EINDE LIVE DEMO FLOW
 ### ------------------------------------------------------------------------------
