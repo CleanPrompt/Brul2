@@ -1144,24 +1144,25 @@ The project combines:
 
 The implementation intentionally avoids unnecessary complexity and follows the KISS principle.
 
-# BRUL2 — New Features: GPS & Weather API
+on test: Retrieve reports within a specified GPS radius.
 
-## Feature 6 — GPS Location Sensor
+---
 
-**Description**
+# BRUL2 — GPS Integration and Weather API Extension
 
-The GPS Location feature allows Android users to retrieve their current location using the device's GPS functionality. The coordinates can be used to create reports and search for nearby reports in BRUL2.
+## 1. GPS Integration — Existing Report Feature
 
-**Technology:** Kotlin, Android Location Services, Ktor REST API.
+The GPS functionality will be integrated into the existing **Report feature** instead of creating a separate backend feature.
 
-**Functionality:**
-- Retrieve GPS coordinates (latitude and longitude).
-- Request location permission from the user.
-- Validate geographical coordinates.
-- Create reports using the current location.
-- Search for reports within a specified radius.
+BRUL2 already supports geographical coordinates and distance calculations. The Android application will retrieve GPS coordinates from the device and send them to the existing REST API.
 
-**Kotlin example:**
+**Existing components:**
+- `Location.kt` — Stores latitude and longitude.
+- `distanceTo()` — Calculates distances between locations using the Haversine formula.
+- `ReportRoutes.kt` — Supports searching for reports within a specified radius.
+- `CreateReportRequest.kt` — Accepts GPS coordinates when creating reports.
+
+**Android GPS example (Kotlin):**
 
 ```kotlin
 val locationClient =
@@ -1178,33 +1179,29 @@ locationClient.getCurrentLocation(
 }
 ```
 
-*Note: Location permission must be checked and granted before calling this code.*
+*Location permissions must be granted before executing this code.*
 
-**Existing BRUL2 endpoint:**
+**Existing API endpoint:**
 
 ```http
 GET /api/v1/reports?latitude=51.5719&longitude=4.7683&radiusKm=5
 ```
 
-**Tests:**
-- Unit test: Validate GPS coordinates.
-- Integration test: Retrieve reports within a specified GPS radius.
+**Testing:**
+- Unit test: Validate GPS coordinates and distance calculations.
+- Integration test: Retrieve reports within a specified radius.
 
----
+## 2. Weather API — New Backend Feature
 
-## Feature 7 — External Weather API (Open-Meteo)
+A new **Weather feature** will integrate the external Open-Meteo REST API into BRUL2.
 
-**Description**
-
-The Weather API feature integrates the external Open-Meteo REST API into BRUL2. It retrieves current weather conditions based on GPS coordinates and provides additional information for safety reports, nuisance reports and help requests.
-
-**Technology:** Kotlin, Ktor HTTP Client, JSON, Open-Meteo REST API.
+This feature retrieves current weather conditions based on GPS coordinates and provides additional context for safety reports, nuisance reports and help requests.
 
 **Functionality:**
 - Retrieve current temperature.
 - Retrieve precipitation and wind speed.
-- Use GPS coordinates to request local weather conditions.
-- Display weather information related to reports.
+- Request weather data using geographical coordinates.
+- Provide weather information associated with report locations.
 
 **Kotlin example:**
 
@@ -1217,7 +1214,7 @@ suspend fun getWeather(
     require(latitude.isFinite() && latitude in -90.0..90.0)
     require(longitude.isFinite() && longitude in -180.0..180.0)
 
-    val response = client.get(
+    return client.get(
         "https://api.open-meteo.com/v1/forecast"
     ) {
         parameter("latitude", latitude)
@@ -1226,83 +1223,71 @@ suspend fun getWeather(
             "current",
             "temperature_2m,precipitation,wind_speed_10m"
         )
-    }
-
-    return response.bodyAsText()
+    }.bodyAsText()
 }
 ```
 
-**Proposed BRUL2 endpoint:**
+**Proposed API endpoint:**
 
 ```http
 GET /api/v1/weather?lat=51.5719&lon=4.7683
 ```
 
-**Tests:**
-- Unit test: Validate coordinates and process weather data using a mocked API response.
-- Integration test: Verify the weather endpoint using a mocked external HTTP service.
+**Testing:**
+- Unit test: Validate coordinates and weather response processing.
+- Integration test: Verify the weather endpoint using a mocked external API.
 
 **External API:** https://open-meteo.com/en/docs
 
-Open-Meteo is available free of charge for non-commercial use within its usage limits, without requiring an API key. Attribution is required.
+Open-Meteo provides free access for non-commercial use within its usage limits, without requiring an API key. Attribution is required.
 
----
-
-## Proposed Feature Structure
+## 3. Updated Project Structure
 
 ```text
 BRUL2/
 ├── src/nl/brul/api/features/
-│   ├── auth/             Existing
-│   ├── report/           Existing
-│   ├── vote/             Existing
-│   ├── help/             Existing
-│   ├── user/             Existing
-│   └── weather/          NEW
+│   ├── auth/              Existing
+│   ├── report/            Existing + GPS integration
+│   │   ├── dto/
+│   │   ├── model/
+│   │   │   └── Location.kt
+│   │   ├── routes/
+│   │   │   └── ReportRoutes.kt
+│   │   └── service/
+│   ├── vote/              Existing
+│   ├── help/              Existing
+│   ├── user/              Existing
+│   └── weather/           NEW
 │       ├── dto/
 │       ├── routes/
 │       └── service/
 │
-└── android-app/          NEW
+└── android-app/           NEW
     └── location/
         └── GpsLocationProvider.kt
 ```
 
-**Security:** GPS requires user permission. Protected BRUL2 endpoints use JWT authentication. Location data must be validated, and HTTPS should be used for communication.
+## 4. Security and Privacy
 
-**Implementation status:** Planned features. The examples are illustrative and require integration and testing before deployment.
-### External API Integration – Open-Meteo
+- GPS location access requires user permission.
+- GPS coordinates must be validated before processing.
+- Protected API endpoints require JWT authentication.
+- HTTPS should be used for secure communication.
+- Location data should only be collected when necessary.
 
-BRUL2 integrates the external **Open-Meteo Weather API** to retrieve weather information based on GPS coordinates.
+## 5. Conclusion
 
-This functionality allows users to view weather conditions at the location of a report, such as temperature, precipitation and wind speed. This provides additional context for safety reports, nuisance reports and help requests.
+The GPS functionality extends the existing Report feature, while the Open-Meteo integration introduces a new Weather feature.
 
-**Technical implementation:**
-- Programming language: Kotlin
-- Backend framework: Ktor
-- External API: Open-Meteo REST API
-- Data format: JSON
-- Location input: GPS latitude and longitude
-- Authentication: No API key required
+This approach reuses existing BRUL2 components, avoids unnecessary code duplication and maintains a modular architecture.
 
-The Open-Meteo API is free for non-commercial use, subject to usage limits of fewer than 10,000 requests per day.
+**Total backend features: 6**
 
-**Example use case:** When a user creates a safety report about a dangerous road situation, BRUL2 can retrieve the weather conditions for that location.
+1. Authentication
+2. Reports (including GPS integration)
+3. Votes
+4. Help Participations
+5. User Management
+6. Weather API (new)
 
-API documentation: https://open-meteo.com/en/docs
-
-Weather data provided by Open-Meteo.com (CC BY 4.0).
-
-**Status:** Planned extension — implementation pending.
-
-This is an extra feauture :
-
-src/nl/brul/api/features/
-└── weather/
-    ├── dto/
-    │   └── WeatherDto.kt
-    ├── service/
-    │   └── WeatherService.kt
-    └── routes/
-        └── WeatherRoutes.kt
-
+**Implementation status:** Planned extensions. Code integration and automated testing are still required.
