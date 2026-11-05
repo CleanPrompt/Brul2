@@ -3,48 +3,52 @@ package nl.brul.api.features.report.service
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
+import nl.brul.api.common.error.AppException
 import nl.brul.api.features.report.model.ImageFormat
 
-/** Pure tests of the photo rules P1-P4. */
+/** Pure tests of the photo rules P2-P4. */
 class PhotoRulesTest {
 
     private fun check(
-        isOwner: Boolean = true,
         size: Long = 1_000,
         format: ImageFormat? = ImageFormat.JPEG,
         existing: Int = 0
-    ) = PhotoRules.check(isOwner, size, format, existing)
+    ) = PhotoRules.check(size, format, existing)
 
     @Test
-    fun `owner can add a normal JPEG`() {
-        assertNull(check())
-    }
-
-    @Test
-    fun `P1 someone else cannot add photos`() {
-        assertEquals(PhotoRejection.NOT_OWNER, check(isOwner = false))
+    fun `a normal JPEG is allowed and its format is returned`() {
+        assertEquals(ImageFormat.JPEG, check())
+        assertEquals(ImageFormat.PNG, check(format = ImageFormat.PNG))
     }
 
     @Test
     fun `P2 exactly 5 MB is allowed, one byte more is not`() {
-        assertNull(check(size = PhotoRules.MAX_PHOTO_BYTES))
-        assertEquals(PhotoRejection.TOO_LARGE, check(size = PhotoRules.MAX_PHOTO_BYTES + 1))
+        check(size = PhotoRules.MAX_PHOTO_BYTES)
+
+        val error = assertFailsWith<AppException.PayloadTooLarge> { check(size = PhotoRules.MAX_PHOTO_BYTES + 1) }
+        assertEquals("PHOTO_TOO_LARGE", error.code)
     }
 
     @Test
-    fun `P3 unknown format is rejected`() {
-        assertEquals(PhotoRejection.UNSUPPORTED_TYPE, check(format = null))
+    fun `P3 an unknown format is rejected`() {
+        val error = assertFailsWith<AppException.UnsupportedMediaType> { check(format = null) }
+        assertEquals("UNSUPPORTED_PHOTO_TYPE", error.code)
     }
 
     @Test
     fun `P4 the fourth photo is rejected`() {
-        assertNull(check(existing = 2))
-        assertEquals(PhotoRejection.PHOTO_LIMIT, check(existing = 3))
+        check(existing = 2)
+
+        val error = assertFailsWith<AppException.Conflict> { check(existing = 3) }
+        assertEquals("PHOTO_LIMIT_REACHED", error.code)
     }
 
     @Test
     fun `the first broken rule decides`() {
-        assertEquals(PhotoRejection.NOT_OWNER, check(isOwner = false, format = null, existing = 3))
+        assertFailsWith<AppException.PayloadTooLarge> {
+            check(size = PhotoRules.MAX_PHOTO_BYTES + 1, format = null, existing = 3)
+        }
+        assertFailsWith<AppException.UnsupportedMediaType> { check(format = null, existing = 3) }
     }
 }

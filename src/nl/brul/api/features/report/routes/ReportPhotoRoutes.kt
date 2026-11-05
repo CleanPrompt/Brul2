@@ -5,9 +5,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
-import io.ktor.server.auth.jwt.JWTPrincipal
-import io.ktor.server.auth.principal
 import io.ktor.server.request.contentLength
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
@@ -18,206 +17,102 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.readBuffer
 import kotlinx.io.readByteArray
-import nl.brul.api.common.error.ApiError
-import nl.brul.api.features.report.dto.toResponse
+import nl.brul.api.common.error.AppException
+import nl.brul.api.common.http.currentUserId
+import nl.brul.api.common.http.idParameter
+import nl.brul.api.features.report.mapper.appLocationOf
 import nl.brul.api.features.report.model.Location
-import nl.brul.api.features.report.service.PhotoDeleteResult
-import nl.brul.api.features.report.service.PhotoRejection
+import nl.brul.api.features.report.service.PhotoAccessService
 import nl.brul.api.features.report.service.PhotoRules
-import nl.brul.api.features.report.service.PhotoUploadResult
 import nl.brul.api.features.report.service.ReportPhotoService
 
-/** Ruimte voor de multipart-scheidingen en de velden naast de foto. */
+/** Room for the multipart boundaries and the form fields next to the photo. */
 private const val MULTIPART_OVERHEAD_BYTES = 64L * 1024
 
 /**
- * Laag: routes (de voordeur).
+ * Photos of reports, under `/api/v1`.
  *
- * Foto's bij meldingen; in Routing.kt komt /api/v1 voor de paden.
- *
- * - GET /reports/{id}/photos: de gegevens van alle foto's bij een melding, met hun locatie
- *   (openbaar, net als de meldingen zelf)
- * - GET /photos/{photoId}: de afbeelding zelf, JPEG of PNG (openbaar)
- * - POST /reports/{id}/photos: een foto plaatsen, alleen de eigenaar van de melding (JWT).
- *   Multipart met het bestand in `photo` en, optioneel, `latitude` en `longitude`. Die worden
- *   alleen gebruikt als de foto zelf geen GPS bevat.
- * - DELETE /photos/{photoId}: verwijderen, door de uploader of een ADMIN
- *
- * Statuscodes: 201 geplaatst, 400 foute invoer, 401 niet ingelogd, 403 niet toegestaan, 404 niet
- * gevonden, 409 al 3 foto's, 413 te groot, 415 geen JPEG of PNG.
- * Een te groot verzoek wordt al op de Content-Length geweigerd, en van de foto leest de route
- * nooit meer dan 5 MB + 1 byte. Zo kan niemand de server vol laten lopen.
+ * Viewing is public, like the reports themselves (decided in `docs/02-ontwerp-hulpvraag-reservering-en-fotos.md`).
+ * Adding and deleting need a JWT; each of those routes starts with one access check from [PhotoAccessService].
+ * To know the owner, the route first reads the report or photo, so an unknown id gives 404 before the check.
  */
-fun Route.reportPhotoRoutes(service: ReportPhotoService) {
+fun Route.reportPhotoRoutes(photoService: ReportPhotoService, accessService: PhotoAccessService) {
 
     get("/reports/{id}/photos") {
-        val reportId = parsePositiveId(call.parameters["id"], "Report ID")
-
-        val photos = service.list(reportId)
-
-        if (photos == null) {
-            call.respond(HttpStatusCode.NotFound)
-            return@get
-        }
-
-        call.respond(HttpStatusCode.OK, photos.map { it.toResponse() })
+        call.respond(photoService.listByReport(call.idParameter("id")))
     }
 
     get("/photos/{photoId}") {
-        val photoId = parsePositiveId(call.parameters["photoId"], "Photo ID")
-
-        val loaded = service.load(photoId)
-
-        if (loaded == null) {
-            call.respond(HttpStatusCode.NotFound)
-            return@get
-        }
-
-        val (photo, bytes) = loaded
-
-        call.respondBytes(
-            bytes = bytes,
-            contentType = ContentType.parse(photo.contentType),
-            status = HttpStatusCode.OK
-        )
+        val image = photoService.getImage(call.idParameter("photoId"))
+        call.respondBytes(image.bytes, ContentType.parse(image.contentType))
     }
 
     authenticate("auth-jwt") {
 
+        // Multipart with the file in `photo` and, optionally, `latitude` and `longitude` from the app.
         post("/reports/{id}/photos") {
-            val userId = call.principal<JWTPrincipal>()
-                ?.payload
-                ?.subject
-                ?.toLongOrNull()
+            val currentUserId = call.currentUserId()
+            val reportId = call.idParameter("id")
+            accessService.requireReportOwner(currentUserId, photoService.getReportOwnerId(reportId))
 
-            if (userId == null || userId <= 0) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
-            }
-
-            val reportId = parsePositiveId(call.parameters["id"], "Report ID")
-
-            // Refuse obviously too large requests before reading them.
-            val contentLength = call.request.contentLength()
-
-            if (contentLength != null &&
-                contentLength > PhotoRules.MAX_PHOTO_BYTES + MULTIPART_OVERHEAD_BYTES
-            ) {
-                call.respond(HttpStatusCode.PayloadTooLarge, ApiError(messageFor(PhotoRejection.TOO_LARGE)))
-                return@post
-            }
-
-            var bytes: ByteArray? = null
-            var latitude: String? = null
-            var longitude: String? = null
-
-            call.receiveMultipart().forEachPart { part ->
-                when (part) {
-                    is PartData.FormItem -> when (part.name) {
-                        "latitude" -> latitude = part.value
-                        "longitude" -> longitude = part.value
-                    }
-
-                    is PartData.FileItem -> if (part.name == "photo") {
-                        // Read at most one byte more than allowed: enough to
-                        // know the photo is too large, without reading it all.
-                        bytes = part.provider()
-                            .readBuffer(PhotoRules.MAX_PHOTO_BYTES + 1)
-                            .readByteArray()
-                    }
-
-                    else -> Unit
-                }
-
-                part.release()
-            }
-
-            val photoBytes = bytes
-
-            require(photoBytes != null && photoBytes.isNotEmpty()) {
-                "The file field 'photo' is required."
-            }
-
-            val result = service.upload(
-                reportId = reportId,
-                uploaderId = userId,
-                bytes = photoBytes,
-                appLocation = parseLocation(latitude, longitude)
-            )
-
-            when (result) {
-                is PhotoUploadResult.Saved ->
-                    call.respond(HttpStatusCode.Created, result.photo.toResponse())
-
-                is PhotoUploadResult.Rejected ->
-                    call.respond(statusFor(result.reason), ApiError(messageFor(result.reason)))
-            }
+            val upload = call.receivePhotoUpload()
+            val photo = photoService.upload(reportId, currentUserId, upload.bytes, upload.appLocation)
+            call.respond(HttpStatusCode.Created, photo)
         }
 
         delete("/photos/{photoId}") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.payload?.subject?.toLongOrNull()
+            val photoId = call.idParameter("photoId")
+            accessService.requireUploaderOrAdmin(call.currentUserId(), photoService.getUploaderId(photoId))
 
-            if (userId == null || userId <= 0) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@delete
-            }
-
-            val photoId = parsePositiveId(call.parameters["photoId"], "Photo ID")
-            val isAdmin = principal.payload.getClaim("role").asString() == "ADMIN"
-
-            when (service.delete(photoId, actingUserId = userId, isAdmin = isAdmin)) {
-                PhotoDeleteResult.DELETED -> call.respond(HttpStatusCode.NoContent)
-                PhotoDeleteResult.NOT_FOUND -> call.respond(HttpStatusCode.NotFound)
-                PhotoDeleteResult.FORBIDDEN -> call.respond(HttpStatusCode.Forbidden)
-            }
+            photoService.delete(photoId)
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }
 
-/** Welke HTTP-status hoort bij welke afwijzing. */
-private fun statusFor(reason: PhotoRejection): HttpStatusCode = when (reason) {
-    PhotoRejection.REPORT_NOT_FOUND -> HttpStatusCode.NotFound
-    PhotoRejection.NOT_OWNER -> HttpStatusCode.Forbidden
-    PhotoRejection.TOO_LARGE -> HttpStatusCode.PayloadTooLarge
-    PhotoRejection.UNSUPPORTED_TYPE -> HttpStatusCode.UnsupportedMediaType
-    PhotoRejection.PHOTO_LIMIT -> HttpStatusCode.Conflict
-}
-
-private fun messageFor(reason: PhotoRejection): String = when (reason) {
-    PhotoRejection.REPORT_NOT_FOUND -> "Report not found."
-    PhotoRejection.NOT_OWNER -> "Only the owner of the report can add photos."
-    PhotoRejection.TOO_LARGE -> "A photo can be at most ${PhotoRules.MAX_PHOTO_BYTES / (1024 * 1024)} MB."
-    PhotoRejection.UNSUPPORTED_TYPE -> "Only JPEG and PNG photos are accepted."
-    PhotoRejection.PHOTO_LIMIT -> "A report can have at most ${PhotoRules.MAX_PHOTOS_PER_REPORT} photos."
-}
+/** What an upload form contains. */
+private class PhotoUpload(
+    val bytes: ByteArray,
+    val appLocation: Location?
+)
 
 /**
- * Maakt een Location van de optionele velden `latitude` en `longitude`.
- * Allebei of geen van beide; geen geldig getal of buiten bereik geeft 400.
+ * Reads the upload form. A request that is clearly too large is refused before it is read, and of the photo
+ * the server never reads more than 5 MB + 1 byte: enough to know it is too large, so nobody can fill the memory.
  */
-private fun parseLocation(latitude: String?, longitude: String?): Location? {
-    if (latitude.isNullOrBlank() && longitude.isNullOrBlank()) {
-        return null
+private suspend fun ApplicationCall.receivePhotoUpload(): PhotoUpload {
+    val contentLength = request.contentLength()
+
+    if (contentLength != null && contentLength > PhotoRules.MAX_PHOTO_BYTES + MULTIPART_OVERHEAD_BYTES) {
+        throw PhotoRules.tooLarge()
     }
 
-    val lat = latitude?.trim()?.toDoubleOrNull()
-    val lon = longitude?.trim()?.toDoubleOrNull()
+    var bytes: ByteArray? = null
+    var latitude: String? = null
+    var longitude: String? = null
 
-    require(lat != null && lon != null) {
-        "Latitude and longitude must be valid numbers and given together."
+    receiveMultipart().forEachPart { part ->
+        when (part) {
+            is PartData.FormItem -> when (part.name) {
+                "latitude" -> latitude = part.value
+                "longitude" -> longitude = part.value
+            }
+
+            is PartData.FileItem -> if (part.name == "photo") {
+                bytes = part.provider().readBuffer(PhotoRules.MAX_PHOTO_BYTES + 1).readByteArray()
+            }
+
+            else -> Unit
+        }
+
+        part.release()
     }
 
-    return Location(lat, lon)
-}
+    val photoBytes = bytes
 
-/** Zet een id uit de URL om naar een getal; geen geldig positief getal geeft 400. */
-private fun parsePositiveId(value: String?, name: String): Long {
-    val id = value?.toLongOrNull()
-
-    require(id != null && id > 0) {
-        "$name must be a positive number."
+    if (photoBytes == null || photoBytes.isEmpty()) {
+        throw AppException.BadRequest("The file field 'photo' is required", "PHOTO_REQUIRED")
     }
 
-    return id
+    return PhotoUpload(photoBytes, appLocationOf(latitude, longitude))
 }

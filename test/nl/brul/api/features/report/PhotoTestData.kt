@@ -5,11 +5,13 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.time.Instant
 import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.math.roundToLong
 import nl.brul.api.features.report.model.Location
 import nl.brul.api.features.report.model.NewReport
+import nl.brul.api.features.report.model.NewReportPhoto
 import nl.brul.api.features.report.model.NuisanceReport
 import nl.brul.api.features.report.model.Report
 import nl.brul.api.features.report.model.ReportCategory
@@ -17,6 +19,10 @@ import nl.brul.api.features.report.model.ReportPhoto
 import nl.brul.api.features.report.repository.PhotoStorage
 import nl.brul.api.features.report.repository.ReportPhotoRepository
 import nl.brul.api.features.report.repository.ReportRepository
+import nl.brul.api.features.user.model.NewUser
+import nl.brul.api.features.user.model.User
+import nl.brul.api.features.user.model.UserRole
+import nl.brul.api.features.user.repository.UserRepository
 
 /**
  * Test helpers for photos: real JPEG and PNG files, a JPEG with GPS in its EXIF data (written
@@ -122,6 +128,18 @@ object PhotoTestData {
         buffer.putInt(seconds.toInt()).putInt(10_000)
     }
 
+    /** Fixed time for the service, so `createdAt` is predictable. */
+    val NOW: Instant = Instant.parse("2026-11-05T19:30:00Z")
+
+    fun user(id: Long, role: UserRole) = User(
+        id = id,
+        username = "user$id",
+        email = "user$id@example.com",
+        passwordHash = "test-password-hash",
+        createdAt = 1_000L,
+        role = role
+    )
+
     fun nuisance(id: Long = 1L, ownerId: Long? = 1L) = NuisanceReport(
         id = id,
         title = "Graffiti",
@@ -148,42 +166,64 @@ class FakeReportRepository(vararg reports: Report) : ReportRepository {
     override fun delete(id: Long): Boolean = reports.remove(id) != null
 }
 
-/** Photo metadata in a list. Set [failOnAdd] to simulate a database error. */
+/** Photo data in a list, like the database. Set [failOnAdd] to simulate a database error. */
 class FakePhotoRepository : ReportPhotoRepository {
 
     val photos = mutableListOf<ReportPhoto>()
     var failOnAdd = false
     private var nextId = 1L
 
-    override fun add(
-        reportId: Long,
-        uploaderId: Long,
-        contentType: String,
-        sizeBytes: Long,
-        storageKey: String,
-        createdAt: Long,
-        location: Location?,
-        locationSource: ReportPhoto.LocationSource?
-    ): ReportPhoto {
+    override fun add(photo: NewReportPhoto): ReportPhoto {
         check(!failOnAdd) { "Database is down." }
+        check(photos.none { it.storageKey == photo.storageKey }) { "Storage key must be unique." }
 
-        val photo = ReportPhoto(
-            nextId++, reportId, uploaderId, contentType, sizeBytes, storageKey, createdAt,
-            location, locationSource
+        val saved = ReportPhoto(
+            id = nextId++,
+            reportId = photo.reportId,
+            uploaderId = photo.uploaderId,
+            contentType = photo.contentType,
+            sizeBytes = photo.sizeBytes,
+            storageKey = photo.storageKey,
+            createdAt = photo.createdAt,
+            location = photo.location
         )
 
-        photos += photo
-        return photo
+        photos += saved
+        return saved
     }
 
     override fun findById(id: Long): ReportPhoto? = photos.firstOrNull { it.id == id }
 
     override fun findByReport(reportId: Long): List<ReportPhoto> =
-        photos.filter { it.reportId == reportId }
+        photos.filter { it.reportId == reportId }.sortedBy { it.id }
 
     override fun countByReport(reportId: Long): Int = findByReport(reportId).size
 
     override fun delete(id: Long): Boolean = photos.removeIf { it.id == id }
+}
+
+/** Users in a map: user 1 owns the test report, user 2 is someone else, user 3 is an admin. */
+class FakePhotoUserRepository : UserRepository {
+
+    private val users = mutableMapOf(
+        1L to PhotoTestData.user(1, UserRole.USER),
+        2L to PhotoTestData.user(2, UserRole.USER),
+        3L to PhotoTestData.user(3, UserRole.ADMIN)
+    )
+
+    override fun create(user: NewUser): User = error("Not needed for this test.")
+
+    override fun findById(id: Long): User? = users[id]
+
+    override fun findByEmail(email: String): User? = users.values.firstOrNull { it.email == email }
+
+    override fun findAll(): List<User> = users.values.sortedBy { it.id }
+
+    override fun updateRole(id: Long, role: UserRole): User? {
+        val updated = users[id]?.copy(role = role) ?: return null
+        users[id] = updated
+        return updated
+    }
 }
 
 /** Photo files in memory instead of on disk. */

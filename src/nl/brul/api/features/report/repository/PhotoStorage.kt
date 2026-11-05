@@ -2,18 +2,15 @@
 package nl.brul.api.features.report.repository
 
 /**
- * Laag: repository (het geheugen).
- *
- * Interface: waar de bytes van foto's bewaard worden. De database slaat alleen de sleutel op
- * (`storageKey`). Net als ReportRepository kent de service alleen deze interface, zodat tests een
- * versie in het geheugen kunnen gebruiken en je later bijvoorbeeld opslag in de cloud kunt
- * aansluiten zonder de service te veranderen.
- * De echte implementatie is FileSystemPhotoStorage.
+ * Where the bytes of photos are kept; the database only stores the key. The service only knows this interface,
+ * so tests can keep photos in memory and the files never end up in H2.
+ * The real version is `FileSystemPhotoStorage`.
  */
 interface PhotoStorage {
 
     fun save(key: String, bytes: ByteArray)
 
+    /** The bytes stored under [key], or `null` when there is no such file. */
     fun load(key: String): ByteArray?
 
     fun delete(key: String)

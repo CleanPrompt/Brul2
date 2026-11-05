@@ -9,6 +9,8 @@ import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import nl.brul.api.common.error.ApiError
+import nl.brul.api.common.error.AppException
+import nl.brul.api.common.error.ErrorResponse
 import nl.brul.api.features.auth.service.EmailAlreadyRegisteredException
 import nl.brul.api.features.auth.service.InvalidCredentialsException
 import nl.brul.api.features.help.service.HelpRequestNotFoundException
@@ -18,6 +20,14 @@ import nl.brul.api.features.help.service.HelpParticipationConflictException
 fun Application.configureErrorHandling() {
 
     install(StatusPages) {
+
+        // Expected errors with a stable code, e.g. from the photo feature (see common/error/AppException.kt).
+        exception<AppException> { call, cause ->
+            call.respond(
+                cause.toHttpStatus(),
+                ErrorResponse(cause.code, cause.message)
+            )
+        }
 
         exception<EmailAlreadyRegisteredException> { call, _ ->
             call.respond(
@@ -95,3 +105,14 @@ fun Application.configureErrorHandling() {
         }
     }
 }
+
+private fun AppException.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is AppException.BadRequest -> HttpStatusCode.BadRequest
+        is AppException.Unauthorized -> HttpStatusCode.Unauthorized
+        is AppException.Forbidden -> HttpStatusCode.Forbidden
+        is AppException.NotFound -> HttpStatusCode.NotFound
+        is AppException.Conflict -> HttpStatusCode.Conflict
+        is AppException.PayloadTooLarge -> HttpStatusCode.PayloadTooLarge
+        is AppException.UnsupportedMediaType -> HttpStatusCode.UnsupportedMediaType
+    }

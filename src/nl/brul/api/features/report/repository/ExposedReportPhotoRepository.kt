@@ -1,52 +1,48 @@
 // src/nl/brul/api/features/report/repository/ExposedReportPhotoRepository.kt
 package nl.brul.api.features.report.repository
 
-import nl.brul.api.features.report.model.Location
+import nl.brul.api.features.report.database.ReportPhotosTable
+import nl.brul.api.features.report.mapper.toReportPhoto
+import nl.brul.api.features.report.model.NewReportPhoto
 import nl.brul.api.features.report.model.ReportPhoto
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
-/**
- * Laag: repository (het geheugen).
- *
- * De echte ReportPhotoRepository, met Exposed en H2. Alles gebeurt in een `transaction`.
- * Bij het teruglezen worden `latitude` en `longitude` weer een Location, en `location_source`
- * weer de enum LocationSource.
- */
+/** [ReportPhotoRepository] with Exposed and H2. Every function runs in its own transaction. */
 class ExposedReportPhotoRepository(
     private val database: Database
 ) : ReportPhotoRepository {
 
-    override fun add(
-        reportId: Long,
-        uploaderId: Long,
-        contentType: String,
-        sizeBytes: Long,
-        storageKey: String,
-        createdAt: Long,
-        location: Location?,
-        locationSource: ReportPhoto.LocationSource?
-    ): ReportPhoto = transaction(database) {
+    override fun add(photo: NewReportPhoto): ReportPhoto = transaction(database) {
+        // Exposed retries a failed transaction; an insert should fail once, not three times.
+        maxAttempts = 1
+
         val id = ReportPhotosTable.insert {
-            it[ReportPhotosTable.reportId] = reportId
-            it[ReportPhotosTable.uploaderId] = uploaderId
-            it[ReportPhotosTable.contentType] = contentType
-            it[ReportPhotosTable.sizeBytes] = sizeBytes
-            it[ReportPhotosTable.storageKey] = storageKey
-            it[ReportPhotosTable.createdAt] = createdAt
-            it[latitude] = location?.latitude
-            it[longitude] = location?.longitude
-            it[ReportPhotosTable.locationSource] = locationSource?.name
+            it[reportId] = photo.reportId
+            it[uploaderId] = photo.uploaderId
+            it[contentType] = photo.contentType
+            it[sizeBytes] = photo.sizeBytes
+            it[storageKey] = photo.storageKey
+            it[createdAt] = photo.createdAt.toEpochMilli()
+            it[latitude] = photo.location?.location?.latitude
+            it[longitude] = photo.location?.location?.longitude
+            it[locationSource] = photo.location?.source
         } get ReportPhotosTable.id
 
-        requireNotNull(findById(id)) {
-            "Created photo could not be retrieved."
-        }
+        ReportPhoto(
+            id = id,
+            reportId = photo.reportId,
+            uploaderId = photo.uploaderId,
+            contentType = photo.contentType,
+            sizeBytes = photo.sizeBytes,
+            storageKey = photo.storageKey,
+            createdAt = photo.createdAt,
+            location = photo.location
+        )
     }
 
     override fun findById(id: Long): ReportPhoto? = transaction(database) {
@@ -54,7 +50,7 @@ class ExposedReportPhotoRepository(
             .selectAll()
             .where { ReportPhotosTable.id eq id }
             .singleOrNull()
-            ?.toPhoto()
+            ?.toReportPhoto()
     }
 
     override fun findByReport(reportId: Long): List<ReportPhoto> = transaction(database) {
@@ -62,7 +58,7 @@ class ExposedReportPhotoRepository(
             .selectAll()
             .where { ReportPhotosTable.reportId eq reportId }
             .orderBy(ReportPhotosTable.id)
-            .map { it.toPhoto() }
+            .map { it.toReportPhoto() }
     }
 
     override fun countByReport(reportId: Long): Int = transaction(database) {
@@ -75,30 +71,5 @@ class ExposedReportPhotoRepository(
 
     override fun delete(id: Long): Boolean = transaction(database) {
         ReportPhotosTable.deleteWhere { ReportPhotosTable.id eq id } > 0
-    }
-
-    private fun ResultRow.toPhoto(): ReportPhoto {
-        val latitude = this[ReportPhotosTable.latitude]
-        val longitude = this[ReportPhotosTable.longitude]
-
-        val location = if (latitude != null && longitude != null) {
-            Location(latitude, longitude)
-        } else {
-            null
-        }
-
-        return ReportPhoto(
-            id = this[ReportPhotosTable.id],
-            reportId = this[ReportPhotosTable.reportId],
-            uploaderId = this[ReportPhotosTable.uploaderId],
-            contentType = this[ReportPhotosTable.contentType],
-            sizeBytes = this[ReportPhotosTable.sizeBytes],
-            storageKey = this[ReportPhotosTable.storageKey],
-            createdAt = this[ReportPhotosTable.createdAt],
-            location = location,
-            locationSource = location?.let {
-                this[ReportPhotosTable.locationSource]?.let { ReportPhoto.LocationSource.valueOf(it) }
-            }
-        )
     }
 }

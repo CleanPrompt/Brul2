@@ -1,34 +1,22 @@
 // src/nl/brul/api/features/report/repository/ReportPhotoRepository.kt
 package nl.brul.api.features.report.repository
 
-import nl.brul.api.features.report.model.Location
+import nl.brul.api.features.report.model.NewReportPhoto
 import nl.brul.api.features.report.model.ReportPhoto
 
-/**
- * Laag: repository (het geheugen).
- *
- * Interface: de functies om fotogegevens op te slaan en op te halen.
- * De echte implementatie is ExposedReportPhotoRepository; tests gebruiken een nep-versie.
- */
+/** Photo data in the database. The real version is `ExposedReportPhotoRepository`; tests use a fake. */
 interface ReportPhotoRepository {
 
-    fun add(
-        reportId: Long,
-        uploaderId: Long,
-        contentType: String,
-        sizeBytes: Long,
-        storageKey: String,
-        createdAt: Long,
-        location: Location?,
-        locationSource: ReportPhoto.LocationSource?
-    ): ReportPhoto
+    /** Saves [photo] and returns it with the id the database gave it. */
+    fun add(photo: NewReportPhoto): ReportPhoto
 
     fun findById(id: Long): ReportPhoto?
 
-    /** Alle foto's van een melding, oudste eerst. */
+    /** All photos of a report, oldest first. */
     fun findByReport(reportId: Long): List<ReportPhoto>
 
     fun countByReport(reportId: Long): Int
 
+    /** `true` when a photo was deleted. */
     fun delete(id: Long): Boolean
 }

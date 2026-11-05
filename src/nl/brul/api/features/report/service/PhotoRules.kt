@@ -1,57 +1,50 @@
 // src/nl/brul/api/features/report/service/PhotoRules.kt
 package nl.brul.api.features.report.service
 
+import nl.brul.api.common.error.AppException
 import nl.brul.api.features.report.model.ImageFormat
 
-/** Waarom een foto niet geplaatst mag worden; de route maakt er de juiste HTTP-status van. */
-enum class PhotoRejection {
-    /** De melding bestaat niet (404). */
-    REPORT_NOT_FOUND,
-
-    /** Alleen de eigenaar van de melding mag foto's toevoegen (403). */
-    NOT_OWNER,
-
-    /** Groter dan 5 MB (413). */
-    TOO_LARGE,
-
-    /** Geen JPEG of PNG (415). */
-    UNSUPPORTED_TYPE,
-
-    /** Er staan al 3 foto's bij de melding (409). */
-    PHOTO_LIMIT
-}
-
 /**
- * Laag: service (de regels).
+ * The rules for the photo itself, as one pure function without a database (P2 to P4).
+ * P1, only the owner of the report adds photos, is an access check in the route (`PhotoAccessService`).
  *
- * De regels voor het toevoegen van een foto, als één pure functie:
- *
- * - P1: alleen de eigenaar van de melding voegt foto's toe
- * - P2: maximaal 5 MB
- * - P3: alleen JPEG of PNG (herkend aan de bytes, zie ImageFormat)
- * - P4: maximaal 3 foto's per melding
- *
- * De controles staan in een vaste volgorde; de eerste die niet klopt bepaalt de reden.
- * `null` betekent: het mag.
+ * The checks run in a fixed order; the first one that fails decides the error.
  */
 object PhotoRules {
 
-    /** P2: maximaal 5 MB per foto. */
+    /** P2: at most 5 MB per photo. */
     const val MAX_PHOTO_BYTES: Long = 5L * 1024 * 1024
 
-    /** P4: maximaal 3 foto's per melding. */
+    /** P4: at most 3 photos per report. */
     const val MAX_PHOTOS_PER_REPORT = 3
 
-    fun check(
-        isOwner: Boolean,
-        sizeBytes: Long,
-        format: ImageFormat?,
-        existingPhotoCount: Int
-    ): PhotoRejection? = when {
-        !isOwner -> PhotoRejection.NOT_OWNER                                    // P1
-        sizeBytes > MAX_PHOTO_BYTES -> PhotoRejection.TOO_LARGE                 // P2
-        format == null -> PhotoRejection.UNSUPPORTED_TYPE                       // P3
-        existingPhotoCount >= MAX_PHOTOS_PER_REPORT -> PhotoRejection.PHOTO_LIMIT // P4
-        else -> null
+    /** Returns the format of an allowed photo, or throws the [AppException] of the first broken rule. */
+    fun check(sizeBytes: Long, format: ImageFormat?, existingPhotoCount: Int): ImageFormat {
+        if (sizeBytes > MAX_PHOTO_BYTES) {
+            throw tooLarge()
+        }
+
+        if (format == null) {
+            throw AppException.UnsupportedMediaType(
+                "Only JPEG and PNG photos are accepted",
+                "UNSUPPORTED_PHOTO_TYPE"
+            )
+        }
+
+        if (existingPhotoCount >= MAX_PHOTOS_PER_REPORT) {
+            throw AppException.Conflict(
+                "A report can have at most $MAX_PHOTOS_PER_REPORT photos",
+                "PHOTO_LIMIT_REACHED"
+            )
+        }
+
+        return format
     }
+
+    /** P2 as an error; also used by the route when the request itself is already too large. */
+    fun tooLarge(): AppException =
+        AppException.PayloadTooLarge(
+            "A photo can be at most ${MAX_PHOTO_BYTES / (1024 * 1024)} MB",
+            "PHOTO_TOO_LARGE"
+        )
 }

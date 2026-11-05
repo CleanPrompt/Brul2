@@ -1,0 +1,229 @@
+BRUL2 - FOTO'S MET GPS BIJ MELDINGEN: WAT DOET ELK BESTAND?
+============================================================
+
+Verantwoordelijke: Maikel (features/report)
+Branch: Maikel-3-11-2026
+
+De code volgt de werkwijze uit de handleiding van het example-project
+(docs/guide/llm-context.md). Daarom staat het commentaar in de code in het
+Engels. Deze uitleg is de Nederlandse versie, om te leren en voor het
+assessment.
+
+
+HOE EEN UPLOAD VERLOOPT (POST /api/v1/reports/{id}/photos)
+----------------------------------------------------------
+
+1. De route leest wie er is ingelogd (currentUserId) en welke melding het
+   is (idParameter). Een id dat geen getal is: 400.
+2. De route vraagt de eigenaar van de melding op. Bestaat de melding niet:
+   404 REPORT_NOT_FOUND. Pas daarna komt de toegangscontrole.
+3. PhotoAccessService controleert P1: alleen de eigenaar voegt foto's toe.
+   Anders: 403 FORBIDDEN.
+4. De route leest het formulier: de foto en eventueel latitude en
+   longitude. Te groot: 413 PHOTO_TOO_LARGE. Geen foto: 400 PHOTO_REQUIRED.
+5. ReportPhotoService laat PhotoRules de foto controleren (P2 tot P4),
+   haalt de GPS uit de foto (G1) of neemt die van de app (G2), slaat het
+   bestand op en daarna de gegevens.
+6. Antwoord: 201 met de gegevens van de foto, inclusief latitude,
+   longitude, locationSource en de url van de afbeelding.
+
+Gaat er iets mis, dan gooit de code een AppException met een vaste code.
+ErrorHandling.kt maakt daar de juiste HTTP-status en de JSON
+{ "code": "...", "message": "..." } van. De routes bouwen dus zelf geen
+foutmeldingen meer.
+
+
+common/error/  -  GEDEELDE FOUTEN (NIEUW, OVERGENOMEN UIT EXAMPLE)
+-----------------------------------------------------------------
+
+AppException.kt
+    Een sealed class: een vaste lijst soorten fouten, elk met een
+    HTTP-status: BadRequest (400), Unauthorized (401), Forbidden (403),
+    NotFound (404), Conflict (409), en voor foto's ook PayloadTooLarge (413)
+    en UnsupportedMediaType (415). Elke fout heeft een code (bijvoorbeeld
+    PHOTO_LIMIT_REACHED) waar de app op kan reageren, en een tekst.
+    requireValid() werkt als require(), maar geeft een nette 400 met de
+    tekst. In de handleiding staat: nooit require() voor invoer gebruiken.
+
+ErrorResponse.kt
+    De JSON van een fout: code en message.
+
+plugins/ErrorHandling.kt (van Phuc, één blok toegevoegd)
+    Vangt elke AppException en stuurt de juiste status met een
+    ErrorResponse. De bestaande foutafhandeling van de anderen is
+    onveranderd.
+
+
+common/http/  -  HULPJES VOOR DE ROUTE (NIEUW)
+----------------------------------------------
+
+RequestParameters.kt
+    - idParameter("id") leest een id uit de URL; geen positief getal geeft
+      400.
+    - currentUserId() leest de id van de ingelogde gebruiker uit de JWT.
+
+
+model/  -  HET DOMEIN
+---------------------
+
+ReportPhoto
+    De gegevens van één foto: id, melding, uploader, soort bestand,
+    grootte, bestandssleutel, tijdstip (Instant, op hele seconden) en de
+    locatie. De afbeelding zelf staat niet in de database.
+
+NewReportPhoto
+    Een foto die nog opgeslagen moet worden; de database geeft hem een id.
+    Net als NewReport bij meldingen.
+
+PhotoLocation (met de enum LocationSource)
+    De plek waar de foto gemaakt is, samen met waar die vandaan komt:
+    PHOTO (uit de foto zelf) of APP (meegestuurd door de app). Doordat ze
+    samen in één klasse zitten, kan een locatie nooit zonder bron bestaan.
+    Daarom is er geen controle in een init-blok meer nodig.
+
+ImageFormat
+    JPEG of PNG, herkend aan de eerste bytes van het bestand ("magic
+    numbers"). De bestandsnaam of de Content-Type-header kan iedereen zelf
+    invullen, de bytes niet.
+
+PhotoFile
+    De afbeelding met zijn soort, klaar om naar de app te sturen.
+
+
+database/  -  DE TABEL (VERHUISD UIT repository/)
+-------------------------------------------------
+
+ReportPhotosTable
+    De tabel report_photos. In de handleiding staan tabellen in database/.
+    - report_id met CASCADE: verdwijnt de melding, dan ook de foto-rijen.
+    - uploader_id met SET_NULL: verdwijnt de gebruiker, dan blijft de foto.
+    - latitude, longitude en location_source: alle drie leeg als er geen
+      locatie is.
+    De kolommen zijn hetzelfde gebleven, dus de database hoeft niet
+    opnieuw aangemaakt te worden.
+
+
+mapper/  -  ALLE OMZETTINGEN (NIEUW)
+------------------------------------
+
+ReportPhotoMapper.kt
+    - toResponse() maakt van een ReportPhoto de JSON voor de app, met de
+      tijd als ISO-tekst ("2026-11-05T19:30:00Z") en de url van de
+      afbeelding.
+    - appLocationOf() maakt van de tekstvelden latitude en longitude een
+      Location. Allebei of geen van beide; geen getal of buiten de aarde
+      geeft 400.
+
+ReportPhotoDatabaseMapper.kt
+    toReportPhoto() maakt van een rij uit de database een ReportPhoto.
+
+
+dto/
+----
+
+ReportPhotoResponse
+    De JSON van één foto. createdAt is nu tekst (ISO 8601) in plaats van
+    milliseconden, zoals de handleiding wil.
+
+
+repository/  -  HET GEHEUGEN
+----------------------------
+
+ReportPhotoRepository (interface) en ExposedReportPhotoRepository
+    Opslaan, opzoeken, tellen en verwijderen van fotogegevens.
+    add() krijgt nu één NewReportPhoto in plaats van acht losse waarden.
+    maxAttempts = 1: Exposed probeert een mislukte transactie anders drie
+    keer opnieuw (valkuil uit de handleiding).
+
+PhotoStorage (interface) en FileSystemPhotoStorage
+    Waar de bytes van de foto's staan: de map uploads/ (niet in Git).
+    Een vreemde bestandssleutel is een fout in onze eigen code, dus dan
+    volgt een 500 (check) in plaats van schrijven buiten de map.
+
+
+service/  -  DE REGELS
+----------------------
+
+PhotoAccessService (nieuw)
+    Wie mag wat, op één plek. De routes roepen dit aan vóór ze iets doen.
+    - P1 requireReportOwner: alleen de eigenaar van de melding voegt foto's
+      toe (ook een admin niet).
+    - P5 requireUploaderOrAdmin: de uploader mag verwijderen, anders moet
+      je admin zijn.
+    De admin-rol komt uit de database, niet uit de JWT. De handleiding
+    zegt: vertrouw geen rollen in de token. Wie geen admin meer is, verliest
+    dat recht meteen.
+
+PhotoRules
+    De regels voor de foto zelf, als pure functie:
+    - P2: maximaal 5 MB (413 PHOTO_TOO_LARGE)
+    - P3: alleen JPEG of PNG (415 UNSUPPORTED_PHOTO_TYPE)
+    - P4: maximaal 3 foto's per melding (409 PHOTO_LIMIT_REACHED)
+    De eerste regel die niet klopt, bepaalt de fout. Gaat alles goed, dan
+    geeft check() het formaat terug.
+
+PhotoGpsReader
+    Leest de GPS uit de EXIF-gegevens van een JPEG, zonder extra
+    bibliotheek. Kapot bestand, geen GPS of 0,0: geen locatie, nooit een
+    crash.
+
+ReportPhotoService
+    Het hart van de feature. Gooit een AppException bij een fout en geeft
+    bij succes de JSON-klasse terug (zoals FeedbackService in example).
+    - getReportOwnerId / getUploaderId: voor de toegangscontrole in de
+      route; 404 als het niet bestaat.
+    - upload: regels, locatie (G1 eerst, dan G2), willekeurige
+      bestandsnaam, opslaan. Mislukt de database, dan wordt het bestand
+      weer verwijderd.
+    - listByReport, getImage, delete.
+    - storageKeysOf / deleteFiles: voor ReportService, die bij het
+      verwijderen van een melding ook de bestanden opruimt.
+    De klok (Clock) is een parameter, zodat tests een vaste tijd gebruiken.
+
+
+routes/
+-------
+
+ReportPhotoRoutes
+    De vier endpoints. Bekijken mag zonder inloggen (besloten in het
+    ontwerpdocument), toevoegen en verwijderen alleen met een JWT. De route
+    leest alleen het verzoek, doet één toegangscontrole, roept de service
+    aan en stuurt het antwoord. Geen regels en geen Exposed-code.
+
+
+plugins/Routing.kt
+------------------
+
+Maakt PhotoAccessService aan met de UserRepository en geeft hem samen met
+ReportPhotoService door aan reportPhotoRoutes.
+
+
+TESTS
+-----
+
+Zonder database (met fakes), 40 tests:
+    PhotoGpsReaderTest (8), PhotoRulesTest (5), PhotoAccessServiceTest (5),
+    ReportPhotoServiceTest (15), ReportPhotoModelTest (3),
+    ReportPhotoMapperTest (4)
+
+ReportPhotoRoutesTest (14): de API met fakes, ook 401, 403, 404, 409, 413
+    en 415, en de foutcodes in de JSON.
+
+ExposedReportPhotoRepositoryTest (5): de echte repository met H2, ook
+    de CASCADE bij het verwijderen van een melding.
+
+Fakes staan in PhotoTestData.kt: FakeReportRepository,
+FakePhotoRepository, FakePhotoUserRepository (gebruiker 1 is eigenaar,
+2 is iemand anders, 3 is admin) en InMemoryPhotoStorage.
+
+
+WAT BEWUST ANDERS IS DAN DE HANDLEIDING
+---------------------------------------
+
+- Id's blijven Long (1, 2, 3) in plaats van UUID, omdat meldingen,
+  gebruikers, stemmen en hulpvragen in heel Brul2 met Long werken.
+- De lijst met foto's is een gewone lijst, geen PageResponse: er zijn er
+  hooguit 3.
+- Er is geen Permission-enum zoals in example; Brul2 heeft alleen de rollen
+  USER en ADMIN in de tabel users.
+- De rest van features/report (meldingen zelf) is nog niet omgezet.

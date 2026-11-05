@@ -4,22 +4,19 @@ package nl.brul.api.features.report.service
 import nl.brul.api.features.report.model.Location
 
 /**
- * Laag: service (de regels).
+ * Reads the GPS coordinates from a JPEG photo. A phone camera writes them into the EXIF data: a block of extra
+ * information near the start of the file (marker APP1, "Exif").
  *
- * Leest de GPS-coördinaten uit een JPEG-foto. Een telefooncamera zet die in de EXIF-gegevens:
- * een blok extra informatie aan het begin van het bestand (marker APP1, "Exif").
+ * How such a file is built, in short:
+ * 1. A JPEG is a list of segments; each starts with 0xFF, a type byte and a length.
+ * 2. The APP1 segment holds a TIFF structure: a list of "tags" (number + value).
+ * 3. Tag 0x8825 points to a second list: the GPS tags.
+ * 4. Those hold latitude and longitude as three fractions (degrees, minutes, seconds) plus a letter:
+ *    N/S for the latitude, E/W for the longitude.
  *
- * Hoe zo'n bestand in elkaar zit, in het kort:
- * 1. JPEG bestaat uit blokken; elk blok begint met 0xFF, een type-byte en een lengte.
- * 2. Het APP1-blok bevat een TIFF-structuur: een lijst met "tags" (nummer + waarde).
- * 3. Tag 0x8825 wijst naar een tweede lijst: de GPS-tags.
- * 4. Daarin staan breedte- en lengtegraad als drie breuken (graden, minuten, seconden) plus een
- *    letter: N/S voor de breedtegraad, E/W voor de lengtegraad.
- *
- * Geen extra bibliotheek nodig. Elke stap controleert of de bytes er echt zijn; een kapot of
- * vreemd bestand geeft gewoon `null` (geen GPS) en nooit een crash. PNG-foto's hebben bijna nooit
- * GPS en worden niet gelezen.
- * Coördinaten 0,0 tellen als "geen GPS": sommige telefoons schrijven dat als er geen fix was.
+ * No extra library is needed. Every step checks that the bytes are really there; a broken or strange file gives
+ * `null` (no GPS) and never a crash. PNG photos almost never contain GPS and are not read.
+ * The coordinates 0,0 count as "no GPS": some phones write that when they had no fix.
  */
 object PhotoGpsReader {
 
@@ -36,7 +33,7 @@ object PhotoGpsReader {
     private const val TYPE_ASCII = 2
     private const val TYPE_RATIONAL = 5
 
-    /** De plek waar de foto genomen is, of `null` als de foto geen bruikbare GPS bevat. */
+    /** Where the photo was taken, or `null` when the photo has no usable GPS data. */
     fun read(bytes: ByteArray): Location? =
         runCatching { readOrNull(bytes) }.getOrNull()
 
@@ -60,7 +57,7 @@ object PhotoGpsReader {
         return runCatching { Location(latitude, longitude) }.getOrNull()
     }
 
-    /** Zoekt het APP1-blok met "Exif\0\0" en geeft de positie waar de TIFF-gegevens beginnen. */
+    /** Finds the APP1 segment with "Exif\0\0" and returns the position where the TIFF data starts. */
     private fun findExifTiffStart(bytes: ByteArray): Int? {
         if (bytes.size < 4 || bytes.u8(0) != 0xFF || bytes.u8(1) != 0xD8) {
             return null
@@ -106,7 +103,7 @@ object PhotoGpsReader {
 
     private fun ByteArray.u8(index: Int): Int = this[index].toInt() and 0xFF
 
-    /** Eén tag uit een TIFF-lijst: nummer, type, aantal waarden en de waarde of de plek ervan. */
+    /** One tag of a TIFF list: number, type, number of values and the value or where it is. */
     private class Entry(
         val tag: Int,
         val type: Int,
@@ -116,8 +113,8 @@ object PhotoGpsReader {
     )
 
     /**
-     * Leest getallen uit de TIFF-gegevens. TIFF kan little-endian ("II", Intel) of big-endian
-     * ("MM", Motorola) zijn; alle posities zijn vanaf het begin van de TIFF-gegevens ([start]).
+     * Reads numbers from the TIFF data. TIFF can be little-endian ("II", Intel) or big-endian ("MM", Motorola);
+     * all positions count from the start of the TIFF data ([start]).
      */
     private class Tiff(
         private val bytes: ByteArray,
@@ -145,7 +142,7 @@ object PhotoGpsReader {
                 .firstOrNull { it.tag == tag }
         }
 
-        /** Graden + minuten/60 + seconden/3600, negatief bij Z (S) of W. */
+        /** Degrees + minutes/60 + seconds/3600, negative for S or W. */
         fun coordinate(gpsIfd: Int, valueTag: Int, refTag: Int, negative: Char): Double? {
             val value = findEntry(gpsIfd, valueTag) ?: return null
             val ref = findEntry(gpsIfd, refTag) ?: return null

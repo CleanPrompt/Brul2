@@ -2,12 +2,10 @@
 package nl.brul.api.features.report.model
 
 /**
- * Laag: model (het domein).
+ * The file formats accepted for photos.
  *
- * De toegestane bestandsformaten voor foto's: JPEG en PNG.
- * Het formaat wordt herkend aan de eerste bytes van het bestand (de "magic numbers"), niet aan de
- * bestandsnaam of de Content-Type-header: die kan iedereen zelf invullen.
- * `companion object`: hoort bij de enum zelf. Je roept het aan als `ImageFormat.detect(bytes)`.
+ * The format is recognised by the first bytes of the file (the "magic numbers"), not by the file name or the
+ * `Content-Type` header, because a client can put anything in those.
  */
 enum class ImageFormat(
     val contentType: String,
@@ -23,7 +21,7 @@ enum class ImageFormat(
             0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
         )
 
-        /** Het formaat van deze bytes, of `null` als het geen JPEG of PNG is. */
+        /** The format of these bytes, or `null` when they are not a JPEG or PNG. */
         fun detect(bytes: ByteArray): ImageFormat? = when {
             bytes.startsWith(JPEG_SIGNATURE) -> JPEG
             bytes.startsWith(PNG_SIGNATURE) -> PNG

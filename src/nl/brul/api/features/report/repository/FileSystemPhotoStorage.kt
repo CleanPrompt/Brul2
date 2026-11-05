@@ -5,11 +5,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Laag: repository (het geheugen).
+ * Keeps every photo as a file in the folder [root] (`uploads/` in `Routing.kt`, ignored by Git).
  *
- * Bewaart elke foto als bestand in de map [root] (in Routing.kt: `uploads`, niet in Git).
- * De sleutels maakt de service zelf (een UUID), maar voor de zekerheid weigert [resolve] alles
- * wat buiten de map zou kunnen wijzen, zoals `../`.
+ * The service creates the keys itself (a UUID), so a strange key is a bug in our own code: [resolve] then
+ * fails with a 500 instead of writing outside the folder, for example through `../`.
  */
 class FileSystemPhotoStorage(
     private val root: Path
@@ -30,10 +29,14 @@ class FileSystemPhotoStorage(
     }
 
     private fun resolve(key: String): Path {
-        require(key.matches(Regex("[A-Za-z0-9._-]+")) && !key.contains("..")) {
-            "Invalid storage key."
+        check(key.matches(SAFE_KEY) && !key.contains("..")) {
+            "Invalid storage key"
         }
 
         return root.resolve(key)
+    }
+
+    private companion object {
+        val SAFE_KEY = Regex("[A-Za-z0-9._-]+")
     }
 }

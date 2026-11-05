@@ -20,6 +20,7 @@ import nl.brul.api.features.report.repository.FileSystemPhotoStorage
 import nl.brul.api.features.report.repository.PhotoStorage
 import nl.brul.api.features.report.routes.reportPhotoRoutes
 import nl.brul.api.features.report.routes.reportRoutes
+import nl.brul.api.features.report.service.PhotoAccessService
 import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportService
 import nl.brul.api.features.user.repository.ExposedUserRepository
@@ -75,6 +76,7 @@ fun Application.configureRouting(
     )
 
     val userRepository = ExposedUserRepository(database)
+    val photoAccessService = PhotoAccessService(userRepository)
     val passwordHasher = BCryptPasswordHasher()
 
     val authService = AuthService(
@@ -98,7 +100,7 @@ fun Application.configureRouting(
 
             reportRoutes(reportService)
 
-            reportPhotoRoutes(photoService)
+            reportPhotoRoutes(photoService, photoAccessService)
 
             voteRoutes(
                 voteService = voteService,

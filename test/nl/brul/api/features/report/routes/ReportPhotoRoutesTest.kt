@@ -13,11 +13,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -28,37 +26,29 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import java.util.UUID
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import nl.brul.api.common.error.ErrorResponse
+import nl.brul.api.features.report.FakePhotoRepository
+import nl.brul.api.features.report.FakePhotoUserRepository
+import nl.brul.api.features.report.FakeReportRepository
 import nl.brul.api.features.report.InMemoryPhotoStorage
 import nl.brul.api.features.report.PhotoTestData
-import nl.brul.api.features.report.dto.CreateReportRequest
 import nl.brul.api.features.report.dto.ReportPhotoResponse
-import nl.brul.api.features.report.dto.ReportResponse
-import nl.brul.api.features.report.repository.ExposedReportPhotoRepository
-import nl.brul.api.features.report.repository.ExposedReportRepository
-import nl.brul.api.features.report.repository.ReportPhotosTable
-import nl.brul.api.features.report.repository.ReportsTable
+import nl.brul.api.features.report.service.PhotoAccessService
+import nl.brul.api.features.report.service.PhotoRules
 import nl.brul.api.features.report.service.ReportPhotoService
 import nl.brul.api.features.report.service.ReportService
-import nl.brul.api.features.user.model.NewUser
-import nl.brul.api.features.user.repository.ExposedUserRepository
-import nl.brul.api.features.user.repository.UsersTable
 import nl.brul.api.plugins.configureErrorHandling
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 
 /**
- * API tests for photos with GPS, with a real H2 database (so ExposedReportPhotoRepository is
- * tested too) and photo files in memory.
+ * API tests for photos with fakes, so no database is needed (the Exposed repository has its own test).
+ * Report 1 belongs to user 1; user 2 is someone else and user 3 is an admin (see `FakePhotoUserRepository`).
  */
 class ReportPhotoRoutesTest {
 
@@ -68,50 +58,18 @@ class ReportPhotoRoutesTest {
 
     private val json = Json { ignoreUnknownKeys = false }
 
-    private fun token(userId: Long, role: String = "USER"): String =
+    private fun token(userId: Long): String =
         JWT.create()
             .withSubject(userId.toString())
             .withIssuer(issuer)
             .withAudience(audience)
-            .withClaim("role", role)
             .sign(Algorithm.HMAC256(secret))
 
-    private fun testPhotos(
-        block: suspend ApplicationTestBuilder.(InMemoryPhotoStorage) -> Unit
-    ) = testApplication {
-        val database = Database.connect(
-            url = "jdbc:h2:mem:photo_routes_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
-            driver = "org.h2.Driver",
-            user = "sa",
-            password = ""
-        )
-
-        transaction(database) {
-            SchemaUtils.create(UsersTable, ReportsTable, ReportPhotosTable)
-        }
-
-        // Users 1, 2 and 3 for the foreign keys.
-        val users = ExposedUserRepository(database)
-
-        (1..3).forEach { number ->
-            users.create(
-                NewUser(
-                    username = "user$number",
-                    email = "user$number@example.com",
-                    passwordHash = "test-password-hash"
-                )
-            )
-        }
-
+    private fun testPhotos(block: suspend ApplicationTestBuilder.(InMemoryPhotoStorage) -> Unit) = testApplication {
+        val reports = FakeReportRepository(PhotoTestData.nuisance(id = 1, ownerId = 1))
         val storage = InMemoryPhotoStorage()
-        val reports = ExposedReportRepository(database)
-
-        val photoService = ReportPhotoService(
-            reportRepository = reports,
-            photoRepository = ExposedReportPhotoRepository(database),
-            storage = storage
-        )
-
+        val photoService = ReportPhotoService(reports, FakePhotoRepository(), storage)
+        val accessService = PhotoAccessService(FakePhotoUserRepository())
         val reportService = ReportService(repository = reports, photoService = photoService)
 
         application {
@@ -141,7 +99,7 @@ class ReportPhotoRoutesTest {
             routing {
                 route("/api/v1") {
                     reportRoutes(reportService)
-                    reportPhotoRoutes(photoService)
+                    reportPhotoRoutes(photoService, accessService)
                 }
             }
         }
@@ -149,35 +107,10 @@ class ReportPhotoRoutesTest {
         block(storage)
     }
 
-    /** Creates a nuisance report owned by user 1 and returns its id. */
-    private suspend fun ApplicationTestBuilder.createReport(): Long {
-        val response = client.post("/api/v1/reports") {
-            bearerAuth(token(1))
-            contentType(ContentType.Application.Json)
-            setBody(
-                Json.encodeToString(
-                    CreateReportRequest.serializer(),
-                    CreateReportRequest(
-                        type = "NUISANCE",
-                        title = "Graffiti on the bridge",
-                        description = "Large graffiti on the pedestrian bridge",
-                        category = "VANDALISM",
-                        latitude = 51.5866,
-                        longitude = 4.7760
-                    )
-                )
-            )
-        }
-
-        assertEquals(HttpStatusCode.Created, response.status)
-
-        return json.decodeFromString(ReportResponse.serializer(), response.bodyAsText()).id
-    }
-
     private suspend fun ApplicationTestBuilder.upload(
-        reportId: Long,
-        userId: Long?,
-        bytes: ByteArray,
+        reportId: Any = 1,
+        userId: Long? = 1,
+        bytes: ByteArray? = PhotoTestData.jpeg(),
         latitude: String? = null,
         longitude: String? = null
     ): HttpResponse =
@@ -191,14 +124,16 @@ class ReportPhotoRoutesTest {
                     formData {
                         if (latitude != null) append("latitude", latitude)
                         if (longitude != null) append("longitude", longitude)
-                        append(
-                            "photo",
-                            bytes,
-                            Headers.build {
-                                append(HttpHeaders.ContentType, "image/jpeg")
-                                append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
-                            }
-                        )
+                        if (bytes != null) {
+                            append(
+                                "photo",
+                                bytes,
+                                Headers.build {
+                                    append(HttpHeaders.ContentType, "image/jpeg")
+                                    append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                                }
+                            )
+                        }
                     }
                 )
             )
@@ -207,11 +142,12 @@ class ReportPhotoRoutesTest {
     private suspend fun HttpResponse.photo(): ReportPhotoResponse =
         json.decodeFromString(ReportPhotoResponse.serializer(), bodyAsText())
 
-    @Test
-    fun `owner uploads a photo and its GPS comes from the photo`() = testPhotos { storage ->
-        val reportId = createReport()
+    private suspend fun HttpResponse.errorCode(): String =
+        json.decodeFromString(ErrorResponse.serializer(), bodyAsText()).code
 
-        val response = upload(reportId, 1, PhotoTestData.jpegWithGps(51.5856, 4.7763))
+    @Test
+    fun `the owner uploads a photo and its GPS comes from the photo`() = testPhotos { storage ->
+        val response = upload(bytes = PhotoTestData.jpegWithGps(51.5856, 4.7763))
 
         assertEquals(HttpStatusCode.Created, response.status)
 
@@ -225,9 +161,7 @@ class ReportPhotoRoutesTest {
 
     @Test
     fun `without GPS in the photo the app coordinates are used`() = testPhotos {
-        val reportId = createReport()
-
-        val photo = upload(reportId, 1, PhotoTestData.jpeg(), "51.59", "4.78").photo()
+        val photo = upload(latitude = "51.59", longitude = "4.78").photo()
 
         assertEquals(51.59, photo.latitude)
         assertEquals(4.78, photo.longitude)
@@ -235,28 +169,16 @@ class ReportPhotoRoutesTest {
     }
 
     @Test
-    fun `without any GPS the location is empty`() = testPhotos {
-        val reportId = createReport()
-
-        val photo = upload(reportId, 1, PhotoTestData.jpeg()).photo()
-
-        assertNull(photo.latitude)
-        assertNull(photo.locationSource)
-    }
-
-    @Test
-    fun `anyone can list photos and download the image`() = testPhotos {
-        val reportId = createReport()
+    fun `anyone can list the photos and download the image without logging in`() = testPhotos {
         val bytes = PhotoTestData.jpegWithGps(51.5856, 4.7763)
-        val photo = upload(reportId, 1, bytes).photo()
+        val photo = upload(bytes = bytes).photo()
 
         val list = json.decodeFromString(
             ListSerializer(ReportPhotoResponse.serializer()),
-            client.get("/api/v1/reports/$reportId/photos").bodyAsText()
+            client.get("/api/v1/reports/1/photos").bodyAsText()
         )
 
         assertEquals(listOf(photo.id), list.map { it.id })
-        assertEquals("PHOTO", list.single().locationSource)
 
         val image = client.get(photo.url)
 
@@ -265,74 +187,105 @@ class ReportPhotoRoutesTest {
     }
 
     @Test
-    fun `upload without JWT returns 401`() = testPhotos {
-        val reportId = createReport()
-
-        assertEquals(HttpStatusCode.Unauthorized, upload(reportId, null, PhotoTestData.jpeg()).status)
+    fun `returns 401 without a token`() = testPhotos {
+        assertEquals(HttpStatusCode.Unauthorized, upload(userId = null).status)
     }
 
     @Test
-    fun `someone else than the owner gets 403`() = testPhotos {
-        val reportId = createReport()
+    fun `returns 403 when someone else than the owner uploads`() = testPhotos {
+        val response = upload(userId = 2)
 
-        assertEquals(HttpStatusCode.Forbidden, upload(reportId, 2, PhotoTestData.jpeg()).status)
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals("FORBIDDEN", response.errorCode())
     }
 
     @Test
-    fun `a text file gets 415`() = testPhotos {
-        val reportId = createReport()
+    fun `returns 404 for an unknown report`() = testPhotos {
+        val list = client.get("/api/v1/reports/99/photos")
 
-        val response = upload(reportId, 1, "not an image".toByteArray())
-
-        assertEquals(HttpStatusCode.UnsupportedMediaType, response.status)
+        assertEquals(HttpStatusCode.NotFound, list.status)
+        assertEquals("REPORT_NOT_FOUND", list.errorCode())
+        assertEquals(HttpStatusCode.NotFound, upload(reportId = 99).status)
     }
 
     @Test
-    fun `the fourth photo gets 409`() = testPhotos {
-        val reportId = createReport()
-
-        repeat(3) {
-            assertEquals(HttpStatusCode.Created, upload(reportId, 1, PhotoTestData.jpeg()).status)
-        }
-
-        assertEquals(HttpStatusCode.Conflict, upload(reportId, 1, PhotoTestData.jpeg()).status)
-    }
-
-    @Test
-    fun `only one app coordinate gets 400`() = testPhotos {
-        val reportId = createReport()
-
-        val response = upload(reportId, 1, PhotoTestData.jpeg(), latitude = "51.59")
+    fun `returns 400 for an id that is not a number`() = testPhotos {
+        val response = client.get("/api/v1/reports/abc/photos")
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("INVALID_REQUEST", response.errorCode())
     }
 
     @Test
-    fun `photos of a missing report get 404`() = testPhotos {
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/reports/99/photos").status)
-        assertEquals(HttpStatusCode.NotFound, upload(99, 1, PhotoTestData.jpeg()).status)
+    fun `returns 400 without a photo or with only one coordinate`() = testPhotos {
+        val noPhoto = upload(bytes = null)
+        assertEquals(HttpStatusCode.BadRequest, noPhoto.status)
+        assertEquals("PHOTO_REQUIRED", noPhoto.errorCode())
+
+        val oneCoordinate = upload(latitude = "51.59")
+        assertEquals(HttpStatusCode.BadRequest, oneCoordinate.status)
+        assertEquals("INVALID_REQUEST", oneCoordinate.errorCode())
     }
 
     @Test
-    fun `uploader deletes a photo, someone else cannot`() = testPhotos { storage ->
-        val reportId = createReport()
-        val photo = upload(reportId, 1, PhotoTestData.jpeg()).photo()
+    fun `returns 413 for a photo larger than 5 MB and stores nothing`() = testPhotos { storage ->
+        val response = upload(bytes = ByteArray(PhotoRules.MAX_PHOTO_BYTES.toInt() + 1))
+
+        assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+        assertEquals("PHOTO_TOO_LARGE", response.errorCode())
+        assertTrue(storage.files.isEmpty())
+    }
+
+    @Test
+    fun `returns 415 for a file that is not a JPEG or PNG`() = testPhotos {
+        val response = upload(bytes = "not an image".toByteArray())
+
+        assertEquals(HttpStatusCode.UnsupportedMediaType, response.status)
+        assertEquals("UNSUPPORTED_PHOTO_TYPE", response.errorCode())
+    }
+
+    @Test
+    fun `returns 409 for the fourth photo`() = testPhotos {
+        repeat(3) {
+            assertEquals(HttpStatusCode.Created, upload().status)
+        }
+
+        val response = upload()
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertEquals("PHOTO_LIMIT_REACHED", response.errorCode())
+    }
+
+    @Test
+    fun `the uploader deletes a photo and then it is gone`() = testPhotos { storage ->
+        val photo = upload().photo()
+
+        val deleted = client.delete("/api/v1/photos/${photo.id}") { bearerAuth(token(1)) }
+
+        assertEquals(HttpStatusCode.NoContent, deleted.status)
+        assertTrue(storage.files.isEmpty())
+
+        val image = client.get(photo.url)
+        assertEquals(HttpStatusCode.NotFound, image.status)
+        assertEquals("PHOTO_NOT_FOUND", image.errorCode())
+    }
+
+    @Test
+    fun `someone else cannot delete a photo, an admin can`() = testPhotos {
+        val photo = upload().photo()
 
         val forbidden = client.delete("/api/v1/photos/${photo.id}") { bearerAuth(token(2)) }
         assertEquals(HttpStatusCode.Forbidden, forbidden.status)
 
-        val deleted = client.delete("/api/v1/photos/${photo.id}") { bearerAuth(token(1)) }
-        assertEquals(HttpStatusCode.NoContent, deleted.status)
-        assertTrue(storage.files.isEmpty())
-        assertEquals(HttpStatusCode.NotFound, client.get(photo.url).status)
+        val byAdmin = client.delete("/api/v1/photos/${photo.id}") { bearerAuth(token(3)) }
+        assertEquals(HttpStatusCode.NoContent, byAdmin.status)
     }
 
     @Test
     fun `deleting a report removes its photo files`() = testPhotos { storage ->
-        val reportId = createReport()
-        upload(reportId, 1, PhotoTestData.jpeg())
+        upload()
 
-        val response = client.delete("/api/v1/reports/$reportId") { bearerAuth(token(1)) }
+        val response = client.delete("/api/v1/reports/1") { bearerAuth(token(1)) }
 
         assertEquals(HttpStatusCode.NoContent, response.status)
         assertTrue(storage.files.isEmpty())

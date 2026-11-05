@@ -4,13 +4,8 @@ package nl.brul.api.features.report.dto
 import kotlinx.serialization.Serializable
 
 /**
- * Laag: dto (de vertaler tussen JSON en Kotlin).
- *
- * De JSON voor één foto. De afbeelding zelf zit er niet in: die haal je op via `url`
- * (GET /api/v1/photos/{id}). Zo blijft een lijst met foto's klein en snel.
- * `latitude` en `longitude` zijn de plek waar de foto genomen is; `locationSource` zegt of die
- * uit de foto zelf komt (PHOTO) of van de app (APP). Zonder locatie zijn ze alle drie `null`.
- * Wordt gemaakt met `ReportPhoto.toResponse()` in ReportMapper.kt.
+ * One photo as JSON. `latitude` and `longitude` are where the photo was taken; `locationSource` says whether
+ * that came from the photo itself (`PHOTO`) or from the app (`APP`). Without a location all three are `null`.
  */
 @Serializable
 data class ReportPhotoResponse(
@@ -19,9 +14,11 @@ data class ReportPhotoResponse(
     val uploaderId: Long? = null,
     val contentType: String,
     val sizeBytes: Long,
-    val createdAt: Long,
+    /** ISO 8601 in UTC, e.g. `2026-11-05T19:30:00Z`. */
+    val createdAt: String,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val locationSource: String? = null,
+    /** Where the app downloads the image: `GET /api/v1/photos/{id}`. */
     val url: String
 )

@@ -1,20 +1,21 @@
 // test/nl/brul/api/features/report/service/ReportPhotoServiceTest.kt
 package nl.brul.api.features.report.service
 
+import java.time.Clock
+import java.time.ZoneOffset
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import nl.brul.api.common.error.AppException
 import nl.brul.api.features.report.FakePhotoRepository
 import nl.brul.api.features.report.FakeReportRepository
 import nl.brul.api.features.report.InMemoryPhotoStorage
 import nl.brul.api.features.report.PhotoTestData
 import nl.brul.api.features.report.model.Location
-import nl.brul.api.features.report.model.ReportPhoto
 
 /** The photo service with fakes: rules, GPS (G1, G2), storage and clean-up. */
 class ReportPhotoServiceTest {
@@ -24,146 +25,150 @@ class ReportPhotoServiceTest {
     private val storage = InMemoryPhotoStorage()
 
     private val service = ReportPhotoService(
-        reportRepository = FakeReportRepository(PhotoTestData.nuisance(id = 1, ownerId = owner)),
+        reportRepository = FakeReportRepository(
+            PhotoTestData.nuisance(id = 1, ownerId = owner),
+            PhotoTestData.nuisance(id = 2, ownerId = null)
+        ),
         photoRepository = photos,
         storage = storage,
-        currentTimeMillis = { 1_000L }
+        clock = Clock.fixed(PhotoTestData.NOW, ZoneOffset.UTC)
     )
 
-    private fun saved(result: PhotoUploadResult): ReportPhoto =
-        assertIs<PhotoUploadResult.Saved>(result).photo
+    private fun upload(bytes: ByteArray = PhotoTestData.jpeg(), appLocation: Location? = null) =
+        service.upload(reportId = 1, uploaderId = owner, bytes = bytes, appLocation = appLocation)
 
     @Test
     fun `G1 the location comes from the photo itself`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.jpegWithGps(51.5856, 4.7763)))
+        val photo = upload(PhotoTestData.jpegWithGps(51.5856, 4.7763))
 
-        val location = assertNotNull(photo.location)
-        assertTrue(abs(location.latitude - 51.5856) < 0.00001)
-        assertEquals(ReportPhoto.LocationSource.PHOTO, photo.locationSource)
+        assertTrue(abs(assertNotNull(photo.latitude) - 51.5856) < 0.00001)
+        assertTrue(abs(assertNotNull(photo.longitude) - 4.7763) < 0.00001)
+        assertEquals("PHOTO", photo.locationSource)
     }
 
     @Test
     fun `G1 the photo wins over the app location`() {
-        val photo = saved(
-            service.upload(
-                1, owner, PhotoTestData.jpegWithGps(51.5856, 4.7763),
-                appLocation = Location(52.0, 5.0)
-            )
-        )
+        val photo = upload(PhotoTestData.jpegWithGps(51.5856, 4.7763), appLocation = Location(52.0, 5.0))
 
-        assertEquals(ReportPhoto.LocationSource.PHOTO, photo.locationSource)
+        assertEquals("PHOTO", photo.locationSource)
     }
 
     @Test
     fun `G2 without GPS in the photo the app location is used`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.jpeg(), Location(52.0, 5.0)))
+        val photo = upload(appLocation = Location(52.0, 5.0))
 
-        assertEquals(Location(52.0, 5.0), photo.location)
-        assertEquals(ReportPhoto.LocationSource.APP, photo.locationSource)
+        assertEquals(52.0, photo.latitude)
+        assertEquals(5.0, photo.longitude)
+        assertEquals("APP", photo.locationSource)
     }
 
     @Test
     fun `without any GPS the photo has no location`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.png()))
+        val photo = upload(PhotoTestData.png())
 
-        assertNull(photo.location)
+        assertNull(photo.latitude)
+        assertNull(photo.longitude)
         assertNull(photo.locationSource)
     }
 
     @Test
-    fun `upload stores the file under a random name`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.jpeg()))
+    fun `upload stores the file under a random name and sets the time`() {
+        val photo = upload()
+        val saved = photos.photos.single()
 
-        assertTrue(photo.storageKey.endsWith(".jpg"))
-        assertTrue(photo.storageKey in storage.files)
+        assertTrue(saved.storageKey.endsWith(".jpg"))
+        assertTrue(saved.storageKey in storage.files)
         assertEquals("image/jpeg", photo.contentType)
-        assertEquals(1_000L, photo.createdAt)
+        assertEquals("2026-11-05T19:30:00Z", photo.createdAt)
+        assertEquals("/api/v1/photos/${photo.id}", photo.url)
     }
 
     @Test
-    fun `missing report is rejected`() {
-        val result = service.upload(99, owner, PhotoTestData.jpeg())
+    fun `an unknown report gives 404`() {
+        val error = assertFailsWith<AppException.NotFound> {
+            service.upload(reportId = 99, uploaderId = owner, bytes = PhotoTestData.jpeg(), appLocation = null)
+        }
 
-        assertEquals(PhotoUploadResult.Rejected(PhotoRejection.REPORT_NOT_FOUND), result)
+        assertEquals("REPORT_NOT_FOUND", error.code)
+        assertFailsWith<AppException.NotFound> { service.getReportOwnerId(99) }
+        assertFailsWith<AppException.NotFound> { service.listByReport(99) }
     }
 
     @Test
-    fun `P1 someone else cannot add a photo`() {
-        val result = service.upload(1, uploaderId = 2, bytes = PhotoTestData.jpeg())
+    fun `the owner of a report is known, also when there is none`() {
+        assertEquals(owner, service.getReportOwnerId(1))
+        assertNull(service.getReportOwnerId(2))
+    }
 
-        assertEquals(PhotoUploadResult.Rejected(PhotoRejection.NOT_OWNER), result)
+    @Test
+    fun `P3 a text file is rejected and nothing is stored`() {
+        assertFailsWith<AppException.UnsupportedMediaType> { upload("not an image".toByteArray()) }
+
         assertTrue(storage.files.isEmpty())
-    }
-
-    @Test
-    fun `P3 a text file is rejected`() {
-        val result = service.upload(1, owner, "not an image".toByteArray())
-
-        assertEquals(PhotoUploadResult.Rejected(PhotoRejection.UNSUPPORTED_TYPE), result)
+        assertTrue(photos.photos.isEmpty())
     }
 
     @Test
     fun `P4 the fourth photo is rejected`() {
-        repeat(3) { saved(service.upload(1, owner, PhotoTestData.jpeg())) }
+        repeat(3) { upload() }
 
-        val result = service.upload(1, owner, PhotoTestData.jpeg())
-
-        assertEquals(PhotoUploadResult.Rejected(PhotoRejection.PHOTO_LIMIT), result)
+        val error = assertFailsWith<AppException.Conflict> { upload() }
+        assertEquals("PHOTO_LIMIT_REACHED", error.code)
+        assertEquals(3, storage.files.size)
     }
 
     @Test
-    fun `no orphan file when saving the data fails`() {
+    fun `no file is left behind when saving the data fails`() {
         photos.failOnAdd = true
 
-        assertFailsWith<IllegalStateException> {
-            service.upload(1, owner, PhotoTestData.jpeg())
-        }
+        assertFailsWith<IllegalStateException> { upload() }
 
         assertTrue(storage.files.isEmpty())
     }
 
     @Test
-    fun `list of a missing report is null`() {
-        assertNull(service.list(99))
+    fun `the list shows the photos of one report, oldest first`() {
+        val first = upload()
+        val second = upload(PhotoTestData.png())
+
+        assertEquals(listOf(first.id, second.id), service.listByReport(1).map { it.id })
     }
 
     @Test
-    fun `load returns the data and the bytes`() {
-        val bytes = PhotoTestData.jpeg()
-        val photo = saved(service.upload(1, owner, bytes))
+    fun `the image comes back with its content type`() {
+        val bytes = PhotoTestData.png()
+        val photo = upload(bytes)
 
-        val (loaded, loadedBytes) = assertNotNull(service.load(photo.id))
+        val image = service.getImage(photo.id)
 
-        assertEquals(photo, loaded)
-        assertTrue(bytes.contentEquals(loadedBytes))
+        assertEquals("image/png", image.contentType)
+        assertTrue(bytes.contentEquals(image.bytes))
     }
 
     @Test
-    fun `uploader can delete their photo and the file is removed`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.jpeg()))
+    fun `an unknown photo gives 404`() {
+        val error = assertFailsWith<AppException.NotFound> { service.getImage(42) }
 
-        assertEquals(PhotoDeleteResult.DELETED, service.delete(photo.id, owner, isAdmin = false))
+        assertEquals("PHOTO_NOT_FOUND", error.code)
+        assertFailsWith<AppException.NotFound> { service.getUploaderId(42) }
+        assertFailsWith<AppException.NotFound> { service.delete(42) }
+    }
+
+    @Test
+    fun `delete removes the data and the file`() {
+        val photo = upload()
+
+        assertEquals(owner, service.getUploaderId(photo.id))
+        service.delete(photo.id)
+
         assertTrue(storage.files.isEmpty())
-        assertNull(service.load(photo.id))
-    }
-
-    @Test
-    fun `someone else cannot delete, an admin can`() {
-        val photo = saved(service.upload(1, owner, PhotoTestData.jpeg()))
-
-        assertEquals(PhotoDeleteResult.FORBIDDEN, service.delete(photo.id, 2, isAdmin = false))
-        assertEquals(PhotoDeleteResult.DELETED, service.delete(photo.id, 2, isAdmin = true))
-    }
-
-    @Test
-    fun `deleting a missing photo says not found`() {
-        assertEquals(PhotoDeleteResult.NOT_FOUND, service.delete(42, owner, isAdmin = true))
+        assertFailsWith<AppException.NotFound> { service.getImage(photo.id) }
     }
 
     @Test
     fun `files of a deleted report can be cleaned up`() {
-        saved(service.upload(1, owner, PhotoTestData.jpeg()))
-        saved(service.upload(1, owner, PhotoTestData.png()))
+        upload()
+        upload(PhotoTestData.png())
 
         service.deleteFiles(service.storageKeysOf(1))
 
